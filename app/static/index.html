@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OHADA Assistant</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">&#9878;</span>
+        <span class="brand-name">OHADA Assistant</span>
+      </div>
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Changer de thème">
+        <svg class="icon icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path></svg>
+        <svg class="icon icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+      </button>
+    </header>
+
+    <main class="chat" id="chat">
+      <div class="empty-state" id="empty-state">
+        <div class="empty-icon">&#9878;</div>
+        <h1>Posez une question sur le droit OHADA</h1>
+        <p>Assistant basé sur un système RAG (retrieval-augmented generation) entraîné sur le corpus des actes uniformes OHADA.</p>
+        <div class="suggestions">
+          <button class="suggestion-chip" data-q="Les délibérations du tribunal arbitral sont-elles publiques ou secrètes ?">Les délibérations du tribunal arbitral sont-elles publiques ou secrètes ?</button>
+          <button class="suggestion-chip" data-q="Qu'est-ce que l'OHADA ?">Qu'est-ce que l'OHADA ?</button>
+          <button class="suggestion-chip" data-q="Comment se déroule une procédure d'arbitrage ?">Comment se déroule une procédure d'arbitrage ?</button>
+        </div>
+      </div>
+      <div class="messages" id="messages"></div>
+    </main>
+
+    <form class="composer" id="composer">
+      <div class="composer-inner">
+        <textarea id="question-input" placeholder="Écrivez votre question juridique..." rows="1"></textarea>
+        <button type="submit" id="send-btn" aria-label="Envoyer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>
+        </button>
+      </div>
+      <p class="disclaimer">L'assistant peut faire des erreurs. Vérifiez les informations juridiques importantes.</p>
+    </form>
+
+    <footer class="footer">
+      <span class="footer-mark">UCAD</span>
+      <span class="dot">&middot;</span>
+      <span>Université Cheikh Anta Diop de Dakar</span>
+      <span class="dot">&middot;</span>
+      <span>Projet NLP — RAG OHADA</span>
+    </footer>
+  </div>
+<script src="/static/script.js"></script>
+</body>
+</html>

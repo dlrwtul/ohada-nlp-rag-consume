@@ -48,3 +48,9 @@ async def index():
 @app.post("/ask")
 async def ask(payload: Question):
     return await asyncio.to_thread(engine.ask, payload.question)
+
+
+@app.post("/stop")
+async def stop():
+    engine.stop()
+    return {"status": "stopping"}

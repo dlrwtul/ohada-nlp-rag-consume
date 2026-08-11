@@ -8,6 +8,19 @@
   const input = document.getElementById("question-input");
   const sendBtn = document.getElementById("send-btn");
 
+  const SEND_ICON = sendBtn.innerHTML;
+  const STOP_ICON = `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>`;
+
+  let currentController = null;
+  let isGenerating = false;
+
+  function setGeneratingState(active) {
+    isGenerating = active;
+    sendBtn.innerHTML = active ? STOP_ICON : SEND_ICON;
+    sendBtn.setAttribute("aria-label", active ? "Arrêter" : "Envoyer");
+    input.disabled = active;
+  }
+
   // --- Theme ---
   const storedTheme = localStorage.getItem("theme");
   if (storedTheme) root.setAttribute("data-theme", storedTheme);
@@ -100,12 +113,30 @@
     `;
   }
 
+  function renderInterrupted(el) {
+    el.innerHTML = `
+      <div class="msg-avatar">Assistant OHADA</div>
+      <div class="error-text" style="color: var(--text-tertiary); font-style: italic;">Réponse interrompue.</div>
+    `;
+  }
+
   function scrollToBottom() {
     chat.scrollTop = chat.scrollHeight;
   }
 
+  function stopGeneration() {
+    if (currentController) currentController.abort();
+    fetch("/stop", { method: "POST" }).catch(() => {});
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
+
+    if (isGenerating) {
+      stopGeneration();
+      return;
+    }
+
     const question = input.value.trim();
     if (!question) return;
 
@@ -113,16 +144,18 @@
     addUserMessage(question);
     input.value = "";
     input.style.height = "auto";
-    sendBtn.disabled = true;
     scrollToBottom();
 
     const typingEl = addTypingIndicator();
+    currentController = new AbortController();
+    setGeneratingState(true);
 
     try {
       const res = await fetch("/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question }),
+        signal: currentController.signal,
       });
 
       if (!res.ok) throw new Error(`Erreur serveur (${res.status})`);
@@ -130,9 +163,14 @@
       const data = await res.json();
       renderAssistantMessage(typingEl, data);
     } catch (err) {
-      renderError(typingEl, "Désolé, une erreur est survenue. Réessayez dans un instant.");
+      if (err.name === "AbortError") {
+        renderInterrupted(typingEl);
+      } else {
+        renderError(typingEl, "Désolé, une erreur est survenue. Réessayez dans un instant.");
+      }
     } finally {
-      sendBtn.disabled = false;
+      setGeneratingState(false);
+      currentController = null;
       scrollToBottom();
     }
   }

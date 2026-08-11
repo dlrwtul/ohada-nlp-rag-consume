@@ -1,15 +1,18 @@
 """Moteur RAG : vector store Chroma + LLM Qwen2.5-3B-Instruct (4bit)."""
 import os
+import threading
 
 import torch
 from dotenv import load_dotenv
 from langchain_chroma import Chroma
+from langchain_core.prompts import PromptTemplate
 from langchain_huggingface.embeddings import HuggingFaceEmbeddings
-from langchain_huggingface.llms import HuggingFacePipeline
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
     BitsAndBytesConfig,
+    StoppingCriteria,
+    StoppingCriteriaList,
     pipeline,
 )
 
@@ -19,12 +22,22 @@ MODEL_ID = os.getenv("MODEL_ID", "Qwen/Qwen2.5-3B-Instruct")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
 CHROMA_DIR = os.getenv("CHROMA_DIR", "./chroma_db")
 
-SYSTEM_PROMPT = (
-    "Tu es un assistant chargé de répondre à des questions sur le droit OHADA. "
-    "Utilises les éléments de contexte récupérés ci-dessous pour répondre à la question. "
-    "Si tu ne connais pas la réponse, dis simplement que tu ne la connais pas. "
-    "Limites ta réponse à trois phrases maximum et restes concis."
+PROMPT_TEMPLATE = PromptTemplate.from_template(
+    """Tu es un assistant chargé de répondre à des questions. Utilises les éléments de contexte récupérés ci-dessous pour répondre à la question. Si tu ne connais pas la réponse, dis simplement que tu ne la connais pas. Limites ta réponse à trois phrases maximum et restes concis.
+Question: {question}
+Context: {context}
+Answer: """
 )
+
+
+class StopFlagCriteria(StoppingCriteria):
+    """Interrompt la génération dès que stop_event est activé."""
+
+    def __init__(self, stop_event: threading.Event):
+        self.stop_event = stop_event
+
+    def __call__(self, input_ids, scores, **kwargs) -> bool:
+        return self.stop_event.is_set()
 
 
 class RagEngine:
@@ -44,34 +57,34 @@ class RagEngine:
             bnb_4bit_quant_type="nf4",
             bnb_4bit_use_double_quant=True,
         )
-        self.tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
+        tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
         model = AutoModelForCausalLM.from_pretrained(
             MODEL_ID,
             quantization_config=quant_config,
             device_map="auto",
         )
-        self.llm = HuggingFacePipeline(
-            pipeline=pipeline(
-                "text-generation",
-                model=model,
-                tokenizer=self.tokenizer,
-                max_new_tokens=100,
-                do_sample=False,
-                return_full_text=False,
-            )
+        self.generator = pipeline(
+            "text-generation",
+            model=model,
+            tokenizer=tokenizer,
+            max_new_tokens=100,
+            do_sample=False,
+            return_full_text=False,
         )
+        self.stop_event = threading.Event()
 
     def ask(self, query: str, k: int = 2) -> dict:
+        self.stop_event.clear()
+
         retrieved_docs = self.vectorstore.similarity_search(query, k=k)
         context = "\n\n".join(doc.page_content[:3000] for doc in retrieved_docs)
-        messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"Question: {query}\n\nContext: {context}"},
-        ]
-        prompt = self.tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
-        )
-        answer = self.llm.invoke(prompt).strip()
+
+        prompt = PROMPT_TEMPLATE.format(question=query, context=context)
+
+        stopping_criteria = StoppingCriteriaList([StopFlagCriteria(self.stop_event)])
+        output = self.generator(prompt, stopping_criteria=stopping_criteria)
+        answer = output[0]["generated_text"].strip()
+
         sources = [
             {
                 "title": doc.metadata.get("title"),
@@ -79,4 +92,7 @@ class RagEngine:
             }
             for doc in retrieved_docs
         ]
-        return {"answer": answer, "sources": sources}
+        return {"answer": answer, "sources": sources, "interrupted": self.stop_event.is_set()}
+
+    def stop(self):
+        self.stop_event.set()

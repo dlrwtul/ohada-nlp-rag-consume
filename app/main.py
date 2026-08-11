@@ -1,3 +1,4 @@
+import asyncio
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -46,4 +47,4 @@ async def index():
 
 @app.post("/ask")
 async def ask(payload: Question):
-    return engine.ask(payload.question)
+    return await asyncio.to_thread(engine.ask, payload.question)

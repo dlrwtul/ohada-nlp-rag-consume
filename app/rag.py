@@ -4,7 +4,6 @@ import os
 import torch
 from dotenv import load_dotenv
 from langchain_chroma import Chroma
-from langchain_core.prompts import PromptTemplate
 from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 from langchain_huggingface.llms import HuggingFacePipeline
 from transformers import (
@@ -20,11 +19,11 @@ MODEL_ID = os.getenv("MODEL_ID", "Qwen/Qwen2.5-3B-Instruct")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
 CHROMA_DIR = os.getenv("CHROMA_DIR", "./chroma_db")
 
-PROMPT_TEMPLATE = PromptTemplate.from_template(
-    """Tu es un assistant chargé de répondre à des questions sur le droit OHADA. Utilises les éléments de contexte récupérés ci-dessous pour répondre à la question. Si tu ne connais pas la réponse, dis simplement que tu ne la connais pas. Limites ta réponse à trois phrases maximum et restes concis.
-Question: {question}
-Context: {context}
-Answer: """
+SYSTEM_PROMPT = (
+    "Tu es un assistant chargé de répondre à des questions sur le droit OHADA. "
+    "Utilises les éléments de contexte récupérés ci-dessous pour répondre à la question. "
+    "Si tu ne connais pas la réponse, dis simplement que tu ne la connais pas. "
+    "Limites ta réponse à trois phrases maximum et restes concis."
 )
 
 
@@ -45,7 +44,7 @@ class RagEngine:
             bnb_4bit_quant_type="nf4",
             bnb_4bit_use_double_quant=True,
         )
-        tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
+        self.tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
         model = AutoModelForCausalLM.from_pretrained(
             MODEL_ID,
             quantization_config=quant_config,
@@ -55,8 +54,8 @@ class RagEngine:
             pipeline=pipeline(
                 "text-generation",
                 model=model,
-                tokenizer=tokenizer,
-                max_new_tokens=1024,
+                tokenizer=self.tokenizer,
+                max_new_tokens=256,
                 do_sample=False,
                 return_full_text=False,
             )
@@ -64,11 +63,13 @@ class RagEngine:
 
     def ask(self, query: str, k: int = 4) -> dict:
         retrieved_docs = self.vectorstore.similarity_search(query, k=k)
-        prompt = PROMPT_TEMPLATE.invoke(
-            {
-                "question": query,
-                "context": "\n\n".join(doc.page_content for doc in retrieved_docs),
-            }
+        context = "\n\n".join(doc.page_content for doc in retrieved_docs)
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": f"Question: {query}\n\nContext: {context}"},
+        ]
+        prompt = self.tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
         )
         answer = self.llm.invoke(prompt).strip()
         sources = [

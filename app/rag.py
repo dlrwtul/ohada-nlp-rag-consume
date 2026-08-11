@@ -1,6 +1,7 @@
 """Moteur RAG : vector store Chroma + LLM Qwen2.5-3B-Instruct (4bit)."""
 import os
 import threading
+import time
 
 import torch
 from dotenv import load_dotenv
@@ -21,6 +22,11 @@ load_dotenv()
 MODEL_ID = os.getenv("MODEL_ID", "Qwen/Qwen2.5-3B-Instruct")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
 CHROMA_DIR = os.getenv("CHROMA_DIR", "./chroma_db")
+DATASET_NAME = os.getenv("DATASET_NAME", "uriel/Maathis_Ohada_dataset")
+
+K_RETRIEVAL = 2
+MAX_NEW_TOKENS = 100
+CONTEXT_CHAR_LIMIT = 3000
 
 PROMPT_TEMPLATE = PromptTemplate.from_template(
     """Tu es un assistant chargé de répondre à des questions. Utilises les éléments de contexte récupérés ci-dessous pour répondre à la question. Si tu ne connais pas la réponse, dis simplement que tu ne la connais pas. Limites ta réponse à trois phrases maximum et restes concis.
@@ -63,27 +69,36 @@ class RagEngine:
             quantization_config=quant_config,
             device_map="auto",
         )
+        print(
+            f"[rag] CUDA disponible: {torch.cuda.is_available()} | "
+            f"device du modèle: {model.device}"
+        )
         self.generator = pipeline(
             "text-generation",
             model=model,
             tokenizer=tokenizer,
-            max_new_tokens=100,
+            max_new_tokens=MAX_NEW_TOKENS,
             do_sample=False,
             return_full_text=False,
         )
         self.stop_event = threading.Event()
 
-    def ask(self, query: str, k: int = 2) -> dict:
-        self.stop_event.clear()
-
+    def _generate(self, query: str, k: int = K_RETRIEVAL) -> dict:
+        t0 = time.perf_counter()
         retrieved_docs = self.vectorstore.similarity_search(query, k=k)
-        context = "\n\n".join(doc.page_content[:3000] for doc in retrieved_docs)
+        t1 = time.perf_counter()
+        context = "\n\n".join(doc.page_content[:CONTEXT_CHAR_LIMIT] for doc in retrieved_docs)
 
         prompt = PROMPT_TEMPLATE.format(question=query, context=context)
 
         stopping_criteria = StoppingCriteriaList([StopFlagCriteria(self.stop_event)])
         output = self.generator(prompt, stopping_criteria=stopping_criteria)
         answer = output[0]["generated_text"].strip()
+        t2 = time.perf_counter()
+        print(
+            f"[rag] retrieval: {t1 - t0:.2f}s | génération: {t2 - t1:.2f}s | "
+            f"total: {t2 - t0:.2f}s"
+        )
 
         sources = [
             {
@@ -94,5 +109,34 @@ class RagEngine:
         ]
         return {"answer": answer, "sources": sources, "interrupted": self.stop_event.is_set()}
 
+    def ask(self, query: str, k: int = K_RETRIEVAL) -> dict:
+        self.stop_event.clear()
+        return self._generate(query, k)
+
+    def ask_many(self, queries: list[str], k: int = K_RETRIEVAL) -> list[dict]:
+        self.stop_event.clear()
+        results = []
+        for query in queries:
+            if self.stop_event.is_set():
+                break
+            results.append({"question": query, **self._generate(query, k)})
+        return results
+
     def stop(self):
         self.stop_event.set()
+
+    def info(self) -> dict:
+        try:
+            doc_count = self.vectorstore._collection.count()
+        except Exception:
+            doc_count = None
+
+        return {
+            "dataset_name": DATASET_NAME,
+            "doc_count": doc_count,
+            "embedding_model": EMBEDDING_MODEL,
+            "llm_model": MODEL_ID,
+            "k": K_RETRIEVAL,
+            "max_new_tokens": MAX_NEW_TOKENS,
+            "context_char_limit": CONTEXT_CHAR_LIMIT,
+        }

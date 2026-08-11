@@ -1,16 +1,16 @@
 :root {
-  --bg: #ffffff;
-  --bg-secondary: #f7f7f5;
+  --bg: #faf9f5;
+  --bg-secondary: #f2f0e6;
   --surface: #ffffff;
-  --border: #e5e4e0;
-  --text: #1a1a19;
-  --text-secondary: #6b6a66;
-  --text-tertiary: #9a9994;
-  --accent: #c96442;
-  --accent-hover: #b3563a;
-  --accent-soft: #f4e6e0;
-  --user-bubble: #f0efec;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.04);
+  --border: #e3e0d2;
+  --text: #16172b;
+  --text-secondary: #5a5972;
+  --text-tertiary: #8d8ca3;
+  --accent: #96690b;
+  --accent-hover: #7d5709;
+  --accent-soft: #f3e7c8;
+  --user-bubble: #edeffa;
+  --shadow: 0 1px 2px rgba(22, 23, 43, 0.05), 0 4px 12px rgba(22, 23, 43, 0.05);
   --radius-lg: 18px;
   --radius-md: 12px;
   --radius-sm: 8px;
@@ -18,34 +18,34 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #1e1e1c;
-    --bg-secondary: #171716;
-    --surface: #26251f;
-    --border: #3a3936;
-    --text: #f0efe9;
-    --text-secondary: #a8a69f;
-    --text-tertiary: #7a7973;
-    --accent: #e0784f;
-    --accent-hover: #ea8a63;
-    --accent-soft: #3a2b23;
-    --user-bubble: #2c2b27;
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 4px 16px rgba(0, 0, 0, 0.3);
+    --bg: #0f1020;
+    --bg-secondary: #14152a;
+    --surface: #1a1b32;
+    --border: #2c2d4a;
+    --text: #f1f1f7;
+    --text-secondary: #a9a8c2;
+    --text-tertiary: #74748f;
+    --accent: #d4af37;
+    --accent-hover: #e3c158;
+    --accent-soft: #362c14;
+    --user-bubble: #23244a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.4);
   }
 }
 
 :root[data-theme="dark"] {
-  --bg: #1e1e1c;
-  --bg-secondary: #171716;
-  --surface: #26251f;
-  --border: #3a3936;
-  --text: #f0efe9;
-  --text-secondary: #a8a69f;
-  --text-tertiary: #7a7973;
-  --accent: #e0784f;
-  --accent-hover: #ea8a63;
-  --accent-soft: #3a2b23;
-  --user-bubble: #2c2b27;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 4px 16px rgba(0, 0, 0, 0.3);
+  --bg: #0f1020;
+  --bg-secondary: #14152a;
+  --surface: #1a1b32;
+  --border: #2c2d4a;
+  --text: #f1f1f7;
+  --text-secondary: #a9a8c2;
+  --text-tertiary: #74748f;
+  --accent: #d4af37;
+  --accent-hover: #e3c158;
+  --accent-soft: #362c14;
+  --user-bubble: #23244a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
 * {
@@ -381,6 +381,16 @@ body {
 
 #send-btn:hover {
   background: var(--accent-hover);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) #send-btn {
+    color: #16172b;
+  }
+}
+
+:root[data-theme="dark"] #send-btn {
+  color: #16172b;
 }
 
 #send-btn:disabled {

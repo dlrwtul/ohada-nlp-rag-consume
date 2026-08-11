@@ -1,10 +1,12 @@
 import asyncio
+import io
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import pandas as pd
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -59,3 +61,31 @@ async def ask(payload: Question):
 async def stop():
     engine.stop()
     return {"status": "stopping"}
+
+
+@app.post("/ask-batch")
+async def ask_batch(file: UploadFile = File(...)):
+    content = await file.read()
+    filename = (file.filename or "").lower()
+
+    try:
+        if filename.endswith(".csv"):
+            df = pd.read_csv(io.BytesIO(content))
+        elif filename.endswith(".xlsx"):
+            df = pd.read_excel(io.BytesIO(content))
+        else:
+            raise HTTPException(status_code=400, detail="Format non supporté (utilise .csv ou .xlsx)")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=400, detail="Impossible de lire le fichier")
+
+    if df.empty:
+        raise HTTPException(status_code=400, detail="Le fichier ne contient aucune ligne")
+
+    question_col = next(
+        (c for c in df.columns if str(c).strip().lower() == "question"), df.columns[0]
+    )
+    questions = df[question_col].dropna().astype(str).tolist()
+
+    return await asyncio.to_thread(engine.ask_many, questions)

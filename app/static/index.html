@@ -37,12 +37,16 @@
 
     <form class="composer" id="composer">
       <div class="composer-inner">
+        <button type="button" id="upload-btn" class="icon-btn" aria-label="Importer une liste de questions (CSV/XLSX)" title="Importer une liste de questions (CSV/XLSX)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05 12.25 20.24a5 5 0 0 1-7.07-7.07l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95L9.64 18.29a2 2 0 0 1-2.83-2.83l8.49-8.49"></path></svg>
+        </button>
+        <input type="file" id="file-input" accept=".csv,.xlsx" hidden>
         <textarea id="question-input" placeholder="Écrivez votre question juridique..." rows="1"></textarea>
         <button type="submit" id="send-btn" aria-label="Envoyer">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>
         </button>
       </div>
-      <p class="disclaimer">L'assistant peut faire des erreurs. Vérifiez les informations juridiques importantes.</p>
+      <p class="disclaimer">L'assistant peut faire des erreurs. Vérifiez les informations juridiques importantes. &middot; L'icône trombone permet d'importer un CSV/XLSX de questions.</p>
     </form>
 
     <footer class="footer">

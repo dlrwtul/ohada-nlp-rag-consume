@@ -55,15 +55,15 @@ class RagEngine:
                 "text-generation",
                 model=model,
                 tokenizer=self.tokenizer,
-                max_new_tokens=256,
+                max_new_tokens=100,
                 do_sample=False,
                 return_full_text=False,
             )
         )
 
-    def ask(self, query: str, k: int = 4) -> dict:
+    def ask(self, query: str, k: int = 2) -> dict:
         retrieved_docs = self.vectorstore.similarity_search(query, k=k)
-        context = "\n\n".join(doc.page_content for doc in retrieved_docs)
+        context = "\n\n".join(doc.page_content[:3000] for doc in retrieved_docs)
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": f"Question: {query}\n\nContext: {context}"},

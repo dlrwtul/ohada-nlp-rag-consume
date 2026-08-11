@@ -63,6 +63,11 @@ async def stop():
     return {"status": "stopping"}
 
 
+@app.get("/info")
+async def info():
+    return engine.info()
+
+
 @app.post("/ask-batch")
 async def ask_batch(file: UploadFile = File(...)):
     content = await file.read()

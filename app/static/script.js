@@ -9,10 +9,20 @@
   const sendBtn = document.getElementById("send-btn");
   const uploadBtn = document.getElementById("upload-btn");
   const fileInput = document.getElementById("file-input");
+  const infoToggle = document.getElementById("info-toggle");
+  const infoClose = document.getElementById("info-close");
+  const infoSidebar = document.getElementById("info-sidebar");
+  const infoOverlay = document.getElementById("info-overlay");
+  const infoBody = document.getElementById("info-body");
 
   const SEND_ICON = sendBtn.innerHTML;
   const STOP_ICON = `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>`;
   const SPEAK_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5Z"></path><path d="M15.5 8.5a5 5 0 0 1 0 7"></path><path d="M18.5 5.5a9 9 0 0 1 0 13"></path></svg>`;
+  const ICON_DATABASE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M3 5v14a9 3 0 0 0 18 0V5"></path><path d="M3 12a9 3 0 0 0 18 0"></path></svg>`;
+  const ICON_SEARCH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>`;
+  const ICON_CPU = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="6" height="6"></rect><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"></path></svg>`;
+  const ICON_SERVER = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="8" rx="2"></rect><rect x="2" y="13" width="20" height="8" rx="2"></rect><path d="M6 7h.01M6 17h.01"></path></svg>`;
+  const ICON_LAYERS = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 9 5-9 5-9-5 9-5Z"></path><path d="m3 12 9 5 9-5"></path><path d="m3 17 9 5 9-5"></path></svg>`;
 
   let currentController = null;
   let isGenerating = false;
@@ -67,6 +77,104 @@
     const file = fileInput.files[0];
     if (file) handleBatchUpload(file);
   });
+
+  // --- Sidebar d'information ---
+  let infoLoaded = false;
+
+  function openInfo() {
+    infoOverlay.hidden = false;
+    requestAnimationFrame(() => {
+      infoSidebar.classList.add("open");
+      infoOverlay.classList.add("open");
+    });
+    infoSidebar.setAttribute("aria-hidden", "false");
+    infoToggle.setAttribute("aria-expanded", "true");
+    if (!infoLoaded) loadInfo();
+  }
+
+  function closeInfo() {
+    infoSidebar.classList.remove("open");
+    infoOverlay.classList.remove("open");
+    infoSidebar.setAttribute("aria-hidden", "true");
+    infoToggle.setAttribute("aria-expanded", "false");
+    setTimeout(() => {
+      if (!infoOverlay.classList.contains("open")) infoOverlay.hidden = true;
+    }, 220);
+  }
+
+  infoToggle.addEventListener("click", () => {
+    if (infoSidebar.classList.contains("open")) {
+      closeInfo();
+    } else {
+      openInfo();
+    }
+  });
+
+  infoClose.addEventListener("click", closeInfo);
+  infoOverlay.addEventListener("click", closeInfo);
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && infoSidebar.classList.contains("open")) closeInfo();
+  });
+
+  async function loadInfo() {
+    try {
+      const res = await fetch("/info");
+      if (!res.ok) throw new Error("bad response");
+      const data = await res.json();
+      infoLoaded = true;
+      renderInfo(data);
+    } catch (err) {
+      infoBody.innerHTML = `<p class="error-text">Impossible de charger les informations du système.</p>`;
+    }
+  }
+
+  function infoRow(label, value) {
+    return `
+      <div class="info-row">
+        <span class="info-row-label">${escapeHtml(label)}</span>
+        <span class="info-row-value">${escapeHtml(String(value))}</span>
+      </div>`;
+  }
+
+  function renderInfo(data) {
+    infoBody.innerHTML = `
+      <section>
+        <div class="info-section-title">${ICON_DATABASE} Jeu de données</div>
+        ${infoRow("Source", data.dataset_name)}
+        ${infoRow("Documents indexés", data.doc_count ?? "—")}
+        ${infoRow("Champs", "titre, contenu, détails")}
+      </section>
+      <section>
+        <div class="info-section-title">${ICON_SEARCH} Recherche documentaire</div>
+        ${infoRow("Embeddings", data.embedding_model)}
+        ${infoRow("Base vectorielle", "Chroma (persistée localement)")}
+        ${infoRow("Documents récupérés / question", `top-${data.k}`)}
+        ${infoRow("Contexte par document", `${data.context_char_limit} caractères max`)}
+      </section>
+      <section>
+        <div class="info-section-title">${ICON_CPU} Génération (LLM)</div>
+        ${infoRow("Modèle", data.llm_model)}
+        ${infoRow("Quantification", "4-bit NF4 (bitsandbytes)")}
+        ${infoRow("Décodage", "glouton (greedy)")}
+        ${infoRow("Longueur max de réponse", `${data.max_new_tokens} tokens`)}
+      </section>
+      <section>
+        <div class="info-section-title">${ICON_SERVER} Infrastructure</div>
+        ${infoRow("Backend", "FastAPI + Uvicorn")}
+        ${infoRow("Frontend", "HTML / CSS / JS")}
+        ${infoRow("Calcul", "GPU CUDA (ex. T4)")}
+      </section>
+      <section>
+        <div class="info-section-title">${ICON_LAYERS} Outils &amp; bibliothèques</div>
+        <div class="info-tags">
+          ${["LangChain", "Transformers", "Accelerate", "bitsandbytes", "PyTorch", "ChromaDB", "pandas", "openpyxl", "Web Speech API"]
+            .map((t) => `<span class="info-tag">${escapeHtml(t)}</span>`)
+            .join("")}
+        </div>
+      </section>
+    `;
+  }
 
   function escapeHtml(str) {
     const div = document.createElement("div");

@@ -22,6 +22,11 @@ load_dotenv()
 MODEL_ID = os.getenv("MODEL_ID", "Qwen/Qwen2.5-3B-Instruct")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
 CHROMA_DIR = os.getenv("CHROMA_DIR", "./chroma_db")
+DATASET_NAME = os.getenv("DATASET_NAME", "uriel/Maathis_Ohada_dataset")
+
+K_RETRIEVAL = 2
+MAX_NEW_TOKENS = 100
+CONTEXT_CHAR_LIMIT = 3000
 
 PROMPT_TEMPLATE = PromptTemplate.from_template(
     """Tu es un assistant chargé de répondre à des questions. Utilises les éléments de contexte récupérés ci-dessous pour répondre à la question. Si tu ne connais pas la réponse, dis simplement que tu ne la connais pas. Limites ta réponse à trois phrases maximum et restes concis.
@@ -72,17 +77,17 @@ class RagEngine:
             "text-generation",
             model=model,
             tokenizer=tokenizer,
-            max_new_tokens=100,
+            max_new_tokens=MAX_NEW_TOKENS,
             do_sample=False,
             return_full_text=False,
         )
         self.stop_event = threading.Event()
 
-    def _generate(self, query: str, k: int = 2) -> dict:
+    def _generate(self, query: str, k: int = K_RETRIEVAL) -> dict:
         t0 = time.perf_counter()
         retrieved_docs = self.vectorstore.similarity_search(query, k=k)
         t1 = time.perf_counter()
-        context = "\n\n".join(doc.page_content[:3000] for doc in retrieved_docs)
+        context = "\n\n".join(doc.page_content[:CONTEXT_CHAR_LIMIT] for doc in retrieved_docs)
 
         prompt = PROMPT_TEMPLATE.format(question=query, context=context)
 
@@ -104,11 +109,11 @@ class RagEngine:
         ]
         return {"answer": answer, "sources": sources, "interrupted": self.stop_event.is_set()}
 
-    def ask(self, query: str, k: int = 2) -> dict:
+    def ask(self, query: str, k: int = K_RETRIEVAL) -> dict:
         self.stop_event.clear()
         return self._generate(query, k)
 
-    def ask_many(self, queries: list[str], k: int = 2) -> list[dict]:
+    def ask_many(self, queries: list[str], k: int = K_RETRIEVAL) -> list[dict]:
         self.stop_event.clear()
         results = []
         for query in queries:
@@ -119,3 +124,19 @@ class RagEngine:
 
     def stop(self):
         self.stop_event.set()
+
+    def info(self) -> dict:
+        try:
+            doc_count = self.vectorstore._collection.count()
+        except Exception:
+            doc_count = None
+
+        return {
+            "dataset_name": DATASET_NAME,
+            "doc_count": doc_count,
+            "embedding_model": EMBEDDING_MODEL,
+            "llm_model": MODEL_ID,
+            "k": K_RETRIEVAL,
+            "max_new_tokens": MAX_NEW_TOKENS,
+            "context_char_limit": CONTEXT_CHAR_LIMIT,
+        }

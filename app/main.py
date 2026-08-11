@@ -45,6 +45,11 @@ async def index():
     return FileResponse(STATIC_DIR / "index.html")
 
 
+@app.get("/favicon.ico")
+async def favicon():
+    return FileResponse(STATIC_DIR / "favicon.svg", media_type="image/svg+xml")
+
+
 @app.post("/ask")
 async def ask(payload: Question):
     return await asyncio.to_thread(engine.ask, payload.question)

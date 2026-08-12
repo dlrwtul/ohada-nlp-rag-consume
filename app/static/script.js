@@ -155,20 +155,21 @@
       <section>
         <div class="info-section-title">${ICON_CPU} Génération (LLM)</div>
         ${infoRow("Modèle", data.llm_model)}
-        ${infoRow("Quantification", "4-bit NF4 (bitsandbytes)")}
-        ${infoRow("Décodage", "glouton (greedy)")}
+        ${infoRow("Moteur d'inférence", data.inference_engine)}
+        ${infoRow("Quantification", data.quantization)}
+        ${infoRow("Décodage", data.decoding)}
         ${infoRow("Longueur max de réponse", `${data.max_new_tokens} tokens`)}
       </section>
       <section>
         <div class="info-section-title">${ICON_SERVER} Infrastructure</div>
         ${infoRow("Backend", "FastAPI + Uvicorn")}
         ${infoRow("Frontend", "HTML / CSS / JS")}
-        ${infoRow("Calcul", "GPU CUDA (ex. T4)")}
+        ${infoRow("Calcul", data.compute)}
       </section>
       <section>
         <div class="info-section-title">${ICON_LAYERS} Outils &amp; bibliothèques</div>
         <div class="info-tags">
-          ${["LangChain", "Transformers", "Accelerate", "bitsandbytes", "PyTorch", "ChromaDB", "pandas", "openpyxl", "Web Speech API"]
+          ${["LangChain", "Ollama", "llama.cpp", "Sentence-Transformers", "PyTorch", "ChromaDB", "pandas", "openpyxl", "Web Speech API"]
             .map((t) => `<span class="info-tag">${escapeHtml(t)}</span>`)
             .join("")}
         </div>

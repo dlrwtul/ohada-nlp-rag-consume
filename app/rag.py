@@ -1,28 +1,23 @@
-"""Moteur RAG : vector store Chroma + LLM Qwen2.5-3B-Instruct (4bit)."""
+"""Moteur RAG : vector store Chroma + LLM servi localement par Ollama."""
+import json
 import os
 import threading
 import time
 
-import torch
+import requests
 from dotenv import load_dotenv
 from langchain_chroma import Chroma
 from langchain_core.prompts import PromptTemplate
 from langchain_huggingface.embeddings import HuggingFaceEmbeddings
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    BitsAndBytesConfig,
-    StoppingCriteria,
-    StoppingCriteriaList,
-    pipeline,
-)
 
 load_dotenv()
 
-MODEL_ID = os.getenv("MODEL_ID", "Qwen/Qwen2.5-3B-Instruct")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
 CHROMA_DIR = os.getenv("CHROMA_DIR", "./chroma_db")
 DATASET_NAME = os.getenv("DATASET_NAME", "uriel/Maathis_Ohada_dataset")
+
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
 
 K_RETRIEVAL = 2
 MAX_NEW_TOKENS = 100
@@ -36,16 +31,6 @@ Answer: """
 )
 
 
-class StopFlagCriteria(StoppingCriteria):
-    """Interrompt la génération dès que stop_event est activé."""
-
-    def __init__(self, stop_event: threading.Event):
-        self.stop_event = stop_event
-
-    def __call__(self, input_ids, scores, **kwargs) -> bool:
-        return self.stop_event.is_set()
-
-
 class RagEngine:
     def __init__(self):
         embedding = HuggingFaceEmbeddings(
@@ -56,32 +41,56 @@ class RagEngine:
             persist_directory=CHROMA_DIR,
             embedding_function=embedding,
         )
-
-        quant_config = BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_compute_dtype=torch.float16,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_use_double_quant=True,
-        )
-        tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
-        model = AutoModelForCausalLM.from_pretrained(
-            MODEL_ID,
-            quantization_config=quant_config,
-            device_map="auto",
-        )
-        print(
-            f"[rag] CUDA disponible: {torch.cuda.is_available()} | "
-            f"device du modèle: {model.device}"
-        )
-        self.generator = pipeline(
-            "text-generation",
-            model=model,
-            tokenizer=tokenizer,
-            max_new_tokens=MAX_NEW_TOKENS,
-            do_sample=False,
-            return_full_text=False,
-        )
         self.stop_event = threading.Event()
+        self._check_ollama()
+
+    def _check_ollama(self):
+        try:
+            res = requests.get(f"{OLLAMA_HOST}/api/tags", timeout=5)
+            res.raise_for_status()
+            available = {m["name"] for m in res.json().get("models", [])}
+            if OLLAMA_MODEL not in available and f"{OLLAMA_MODEL}:latest" not in available:
+                print(
+                    f"[rag] ATTENTION: le modèle '{OLLAMA_MODEL}' n'est pas encore "
+                    f"téléchargé dans Ollama. Lance : ollama pull {OLLAMA_MODEL}"
+                )
+            else:
+                print(f"[rag] Ollama OK — modèle '{OLLAMA_MODEL}' disponible.")
+        except requests.exceptions.RequestException as exc:
+            print(
+                f"[rag] ATTENTION: impossible de contacter Ollama sur {OLLAMA_HOST} ({exc}). "
+                "Assure-toi qu'Ollama est installé et lancé (commande: ollama serve)."
+            )
+
+    def _call_ollama(self, prompt: str) -> str:
+        response = requests.post(
+            f"{OLLAMA_HOST}/api/generate",
+            json={
+                "model": OLLAMA_MODEL,
+                "prompt": prompt,
+                "stream": True,
+                "options": {"num_predict": MAX_NEW_TOKENS, "temperature": 0},
+            },
+            stream=True,
+            timeout=300,
+        )
+        response.raise_for_status()
+
+        chunks = []
+        try:
+            for line in response.iter_lines():
+                if self.stop_event.is_set():
+                    break
+                if not line:
+                    continue
+                data = json.loads(line)
+                chunks.append(data.get("response", ""))
+                if data.get("done"):
+                    break
+        finally:
+            response.close()
+
+        return "".join(chunks).strip()
 
     def _generate(self, query: str, k: int = K_RETRIEVAL) -> dict:
         t0 = time.perf_counter()
@@ -90,10 +99,7 @@ class RagEngine:
         context = "\n\n".join(doc.page_content[:CONTEXT_CHAR_LIMIT] for doc in retrieved_docs)
 
         prompt = PROMPT_TEMPLATE.format(question=query, context=context)
-
-        stopping_criteria = StoppingCriteriaList([StopFlagCriteria(self.stop_event)])
-        output = self.generator(prompt, stopping_criteria=stopping_criteria)
-        answer = output[0]["generated_text"].strip()
+        answer = self._call_ollama(prompt)
         t2 = time.perf_counter()
         print(
             f"[rag] retrieval: {t1 - t0:.2f}s | génération: {t2 - t1:.2f}s | "
@@ -135,7 +141,11 @@ class RagEngine:
             "dataset_name": DATASET_NAME,
             "doc_count": doc_count,
             "embedding_model": EMBEDDING_MODEL,
-            "llm_model": MODEL_ID,
+            "llm_model": OLLAMA_MODEL,
+            "inference_engine": "Ollama (llama.cpp)",
+            "quantization": "GGUF (quantification native Ollama)",
+            "decoding": "glouton (température = 0)",
+            "compute": "CPU",
             "k": K_RETRIEVAL,
             "max_new_tokens": MAX_NEW_TOKENS,
             "context_char_limit": CONTEXT_CHAR_LIMIT,

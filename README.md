@@ -8,7 +8,22 @@ Mini application web qui consomme un pipeline RAG (retrieval-augmented generatio
 - [Ollama](https://ollama.com) installé et lancé (aucun GPU requis — Ollama tourne bien sur CPU)
 - Un token Hugging Face (optionnel, recommandé pour éviter le rate-limit lors du téléchargement du dataset/des embeddings)
 
-## Installation
+## Démarrage rapide (script tout-en-un)
+
+Un script s'occupe de tout : installer/démarrer Ollama, télécharger le modèle, créer le venv Python, installer les dépendances et lancer le serveur.
+
+- **Linux / macOS / WSL (Ubuntu, etc.)** :
+  ```bash
+  ./start.sh
+  ```
+- **Windows (PowerShell)** — installe d'abord [Ollama pour Windows](https://ollama.com/download) manuellement (le script ne peut pas le faire), puis :
+  ```powershell
+  .\start.ps1
+  ```
+
+Le script est idempotent (relançable sans risque) : il saute les étapes déjà faites (Ollama déjà installé/lancé, modèle déjà téléchargé, venv déjà créé, `.env` déjà présent). Une fois lancé, ouvrir [http://localhost:8000](http://localhost:8000).
+
+## Installation manuelle (détail des étapes du script)
 
 ```bash
 # 1. Installer et lancer Ollama (une seule fois)

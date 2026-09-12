@@ -36,7 +36,9 @@ ollama serve
 uvicorn app.main:app --reload
 ```
 
-Au premier démarrage, si aucun index Chroma n'existe dans `CHROMA_DIR` (par défaut `./chroma_db`), l'app télécharge le dataset `uriel/Maathis_Ohada_dataset`, construit les embeddings et persiste l'index automatiquement. Les démarrages suivants réutilisent l'index existant.
+Au premier démarrage, si aucun index Chroma n'existe dans `CHROMA_DIR` (par défaut `./chroma_db`), l'app construit les embeddings et persiste l'index automatiquement à partir du dataset. Les démarrages suivants réutilisent l'index existant.
+
+Le dataset est chargé depuis `data/ohada.xlsx` (fichier local, `DATASET_XLSX_PATH`) s'il est présent — c'est le cas par défaut dans ce repo, donc tout fonctionne 100% hors-ligne dès le premier lancement. S'il est absent, il est téléchargé depuis le Hub Hugging Face (`DATASET_NAME=uriel/Maathis_Ohada_dataset`).
 
 Au lancement, le terminal affiche si Ollama est bien joignable et si le modèle demandé est déjà téléchargé (`[rag] Ollama OK — modèle '...' disponible.`), ainsi que le temps de retrieval/génération pour chaque question.
 
@@ -58,6 +60,14 @@ app/rag.py                 # vectorstore + appel à Ollama + fonctions ask()/ask
 app/main.py                # API FastAPI (/ask, /ask-batch, /stop, /info) + service de l'UI statique
 app/static/                # interface de chat (HTML/CSS/JS, dark & light, sidebar d'info)
 ```
+
+## Notebook GPU vs version locale
+
+Le notebook `notebook/NLP_project_ollama.ipynb` de ce repo est la version **sans GPU** : il remplace le chargement direct de Qwen2.5-3B-Instruct en 4-bit (bitsandbytes, nécessite une carte comme la Tesla T4) par un appel à Ollama, qui sert le même modèle quantifié (GGUF) et tourne très bien sur CPU. C'est celui-là qu'il faut utiliser sur une machine sans GPU — l'app FastAPI (`app/`) en est l'équivalent packagé.
+
+Si tu as un notebook différent qui charge le modèle directement via `transformers`/`bitsandbytes` (comme celui qui vérifie `nvidia-smi` / Tesla T4), deux options :
+- L'adapter comme `notebook/NLP_project_ollama.ipynb` (remplacer les cellules de chargement du modèle + génération par les appels à Ollama ci-dessus) pour le faire tourner en local sans GPU.
+- Le lancer tel quel sur [Google Colab](https://colab.research.google.com/) : `Fichier > Importer un notebook`, puis `Exécution > Modifier le type d'exécution > GPU (T4)` (disponible gratuitement, avec quotas d'usage). Il faut alors aussi uploader `data/ohada.xlsx` dans l'environnement Colab (panneau fichiers à gauche, ou `from google.colab import drive`) puisque `pd.read_excel('ohada.xlsx')` lit un fichier local à l'environnement d'exécution.
 
 ## Endpoints API
 

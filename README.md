@@ -1,6 +1,6 @@
 # OHADA Assistant — mini app RAG
 
-Mini application web qui consomme un pipeline RAG (retrieval-augmented generation) sur le corpus juridique OHADA : embeddings BGE + Chroma pour le retrieval, Qwen2.5-3B-Instruct servi par Ollama (CPU) pour la génération, le tout derrière une API FastAPI avec une interface de chat moderne (dark/light), des réponses **streamées** token par token, et plusieurs discussions persistées par utilisateur (avec ou sans compte).
+Mini application web qui consomme un pipeline RAG (retrieval-augmented generation) sur le corpus juridique OHADA : embeddings BGE + Chroma pour le retrieval, Qwen2.5-1.5B-Instruct (open-source, licence Apache-2.0) servi par Ollama (CPU) pour la génération, le tout derrière une API FastAPI avec une interface de chat moderne (dark/light), des réponses **streamées** token par token, et plusieurs discussions persistées par utilisateur (avec ou sans compte).
 
 Une landing page publique (`/`) explique le projet ; on peut discuter directement (`/app`) **sans créer de compte** — une seule discussion est alors conservée. Se connecter ou créer un compte (`/login`, `/register`) permet d'en garder plusieurs.
 
@@ -30,7 +30,7 @@ Le script est idempotent (relançable sans risque) : il saute les étapes déjà
 ```bash
 # 1. Installer et lancer Ollama (une seule fois)
 curl -fsSL https://ollama.com/install.sh | sh
-ollama pull qwen2.5:3b
+ollama pull qwen2.5:1.5b
 
 # 2. Environnement Python
 python -m venv .venv
@@ -70,13 +70,9 @@ Ouvrir [http://localhost:8000](http://localhost:8000) (landing page) ou directem
 
 Le terminal affiche à chaque réponse une ligne `[rag] retrieval: Xs | génération: Ys | total: Zs` — **c'est le premier réflexe pour diagnostiquer une lenteur** : si `retrieval` est élevé (rare), c'est l'index qui a un problème ; si c'est `génération` qui domine (le cas le plus probable), la génération LLM elle-même est le goulot, pas le RAG autour.
 
-Les réponses sont **streamées** token par token (comme la plupart des chats LLM) : le premier mot apparaît en ~1s au lieu d'attendre la fin de toute la génération, ce qui réduit la latence *perçue* — mais le temps total pour un paragraphe de 100 tokens sur un CPU 3B reste ce qu'il est. Si `génération` est systématiquement long (dizaines de secondes), les leviers réels sont :
+Les réponses sont **streamées** token par token (comme la plupart des chats LLM) : le premier mot apparaît en ~1s au lieu d'attendre la fin de toute la génération, ce qui réduit la latence *perçue* — mais le temps total pour un paragraphe de 100 tokens sur CPU reste ce qu'il est. Si `génération` est systématiquement long (dizaines de secondes), les leviers réels sont :
 
-- **Modèle plus petit** — le plus efficace :
-  ```bash
-  ollama pull qwen2.5:1.5b
-  ```
-  puis `OLLAMA_MODEL=qwen2.5:1.5b` dans `.env` (quasi 2x plus rapide, raisonnement un peu moins fin).
+- **`OLLAMA_MODEL`** : `qwen2.5:1.5b` (par défaut ici, Apache-2.0) est déjà le compromis rapide. `qwen2.5:3b` répond un peu mieux mais est ~2x plus lent *et* sous licence Qwen Research (non-commerciale, pas open-source) — à réserver aux usages où la licence du modèle n'est pas contrainte (voir section Zindi plus bas).
 - **`OLLAMA_KEEP_ALIVE`** (nouveau, voir `.env.example`) : par défaut Ollama décharge le modèle de la RAM après 5 minutes d'inactivité — le rechargement depuis le disque au message suivant ajoute plusieurs secondes. `OLLAMA_KEEP_ALIVE=30m` (déjà la valeur par défaut ici) garde le modèle chargé plus longtemps ; `-1` pour ne jamais le décharger si la RAM le permet.
 - **CPU réellement alloué** : sous WSL2/Windows notamment, vérifie que WSL n'est pas bridé (`.wslconfig` — par défaut WSL2 limite parfois la RAM/CPU disponible) et regarde l'usage CPU (`htop`/gestionnaire des tâches) pendant la génération : si un seul cœur tourne à 100% et les autres à 0%, Ollama n'exploite pas tout le CPU disponible.
 
@@ -108,11 +104,23 @@ app/static/                 # landing, login/register, chat (HTML/CSS/JS, dark &
 
 ## Notebook GPU vs version locale
 
-Le notebook `notebook/NLP_project_ollama.ipynb` de ce repo est la version **sans GPU** : il remplace le chargement direct de Qwen2.5-3B-Instruct en 4-bit (bitsandbytes, nécessite une carte comme la Tesla T4) par un appel à Ollama, qui sert le même modèle quantifié (GGUF) et tourne très bien sur CPU. C'est celui-là qu'il faut utiliser sur une machine sans GPU — l'app FastAPI (`app/`) en est l'équivalent packagé.
+Le notebook `notebook/NLP_project_ollama.ipynb` de ce repo est la version **sans GPU** : il remplace le chargement direct d'un modèle en 4-bit (bitsandbytes, nécessite une carte comme la Tesla T4) par un appel à Ollama, qui sert le même modèle quantifié (GGUF) et tourne très bien sur CPU. C'est celui-là qu'il faut utiliser sur une machine sans GPU — l'app FastAPI (`app/`) en est l'équivalent packagé.
 
 Si tu as un notebook différent qui charge le modèle directement via `transformers`/`bitsandbytes` (comme celui qui vérifie `nvidia-smi` / Tesla T4), deux options :
 - L'adapter comme `notebook/NLP_project_ollama.ipynb` (remplacer les cellules de chargement du modèle + génération par les appels à Ollama ci-dessus) pour le faire tourner en local sans GPU.
 - Le lancer tel quel sur [Google Colab](https://colab.research.google.com/) : `Fichier > Importer un notebook`, puis `Exécution > Modifier le type d'exécution > GPU (T4)` (disponible gratuitement, avec quotas d'usage). Il faut alors aussi uploader `data/ohada.xlsx` dans l'environnement Colab (panneau fichiers à gauche, ou `from google.colab import drive`) puisque `pd.read_excel('ohada.xlsx')` lit un fichier local à l'environnement d'exécution.
+
+## Concours Zindi — LLM pour le droit OHADA
+
+Ce repo est aligné sur le règlement du concours *Large Language Model Challenge on OHADA Law* (data354/Zindi) :
+
+- **Modèle open-source** : `qwen2.5:1.5b` (licence Apache-2.0) est le modèle par défaut partout (app, notebook, `start.sh`/`start.ps1`). `qwen2.5:3b` reste utilisable via `OLLAMA_MODEL`, mais sa licence Qwen Research (non-commerciale) le rend non conforme à l'exigence "LLM open-source uniquement" du règlement — à éviter pour une soumission.
+- **Matériel** : tourne entièrement sur CPU (aucun GPU requis), donc compatible avec la contrainte "processeur multicœur ou Google Colab gratuit".
+- **Notebook de soumission** : `notebook/NLP_project_ollama.ipynb` construit désormais, en plus de la réponse, un fichier `submission.csv` au format attendu par la Phase 1 (colonnes `ID`/`Target`, 3 lignes par question : `{ID}_Answer`, `{ID}_Document_de_Référence`, `{ID}_Numéro_d'Article`). Le document de référence et le numéro d'article sont extraits par une regex (`extraire_reference`) sur le premier document récupéré, qui repère les motifs `ARTICLE <numéro> <ABRÉVIATION>` présents dans le corpus (ex. `AUPSRVE`, `AUA`) — une heuristique simple, pas une garantie d'exactitude.
+
+**Points restants à vérifier avec les vrais fichiers du concours** (non accessibles depuis cet environnement, `zindi.world` étant bloqué) :
+- Le notebook suppose un fichier `Test.csv` avec des colonnes `ID`/`question` : à ajuster une fois le vrai fichier de test téléchargé si les noms de colonnes diffèrent.
+- Le règlement mentionne aussi "extraire les verbes et les noms et les remplir dans l'ordre où ils apparaissent" pour chaque réponse — formulation ambiguë dans le texte fourni, non implémentée ici faute de spécification claire (format de sortie exact non défini). À clarifier via le `SampleSubmission.csv`/la page Data du concours avant la soumission finale.
 
 ## Endpoints API
 

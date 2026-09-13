@@ -17,7 +17,7 @@ CHROMA_DIR = os.getenv("CHROMA_DIR", "./chroma_db")
 DATASET_NAME = os.getenv("DATASET_NAME", "uriel/Maathis_Ohada_dataset")
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:1.5b")
 # Combien de temps Ollama garde le modèle chargé en RAM après la dernière requête.
 # Par défaut Ollama décharge le modèle au bout de 5 minutes d'inactivité ; le
 # rechargement depuis le disque au message suivant peut à lui seul prendre

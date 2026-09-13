@@ -119,6 +119,72 @@ class RagEngine:
         self.stop_event.clear()
         return self._generate(query, k)
 
+    def _call_ollama_stream(self, prompt: str):
+        """Yield les tokens de réponse au fur et à mesure qu'Ollama les génère."""
+        response = requests.post(
+            f"{OLLAMA_HOST}/api/generate",
+            json={
+                "model": OLLAMA_MODEL,
+                "prompt": prompt,
+                "stream": True,
+                "options": {"num_predict": MAX_NEW_TOKENS, "temperature": 0},
+            },
+            stream=True,
+            timeout=300,
+        )
+        response.raise_for_status()
+
+        try:
+            for line in response.iter_lines():
+                if self.stop_event.is_set():
+                    break
+                if not line:
+                    continue
+                data = json.loads(line)
+                token = data.get("response", "")
+                if token:
+                    yield token
+                if data.get("done"):
+                    break
+        finally:
+            response.close()
+
+    def _generate_stream(self, query: str, k: int = K_RETRIEVAL):
+        t0 = time.perf_counter()
+        retrieved_docs = self.vectorstore.similarity_search(query, k=k)
+        t1 = time.perf_counter()
+        context = "\n\n".join(doc.page_content[:CONTEXT_CHAR_LIMIT] for doc in retrieved_docs)
+        prompt = PROMPT_TEMPLATE.format(question=query, context=context)
+
+        answer_parts = []
+        for token in self._call_ollama_stream(prompt):
+            answer_parts.append(token)
+            yield {"type": "token", "token": token}
+
+        t2 = time.perf_counter()
+        print(
+            f"[rag] retrieval: {t1 - t0:.2f}s | génération (streamée): {t2 - t1:.2f}s | "
+            f"total: {t2 - t0:.2f}s"
+        )
+
+        sources = [
+            {
+                "title": doc.metadata.get("title"),
+                "details": doc.metadata.get("details"),
+            }
+            for doc in retrieved_docs
+        ]
+        yield {
+            "type": "done",
+            "answer": "".join(answer_parts).strip(),
+            "sources": sources,
+            "interrupted": self.stop_event.is_set(),
+        }
+
+    def ask_stream(self, query: str, k: int = K_RETRIEVAL):
+        self.stop_event.clear()
+        yield from self._generate_stream(query, k)
+
     def ask_many(self, queries: list[str], k: int = K_RETRIEVAL) -> list[dict]:
         self.stop_event.clear()
         results = []

@@ -1,6 +1,8 @@
 # OHADA Assistant — mini app RAG
 
-Mini application web qui consomme un pipeline RAG (retrieval-augmented generation) sur le corpus juridique OHADA : embeddings BGE + Chroma pour le retrieval, Qwen2.5-3B-Instruct servi par Ollama (CPU) pour la génération, le tout derrière une API FastAPI avec une interface de chat moderne (dark/light).
+Mini application web qui consomme un pipeline RAG (retrieval-augmented generation) sur le corpus juridique OHADA : embeddings BGE + Chroma pour le retrieval, Qwen2.5-3B-Instruct servi par Ollama (CPU) pour la génération, le tout derrière une API FastAPI avec une interface de chat moderne (dark/light), des réponses **streamées** token par token, et plusieurs discussions persistées par utilisateur (avec ou sans compte).
+
+Une landing page publique (`/`) explique le projet ; on peut discuter directement (`/app`) **sans créer de compte** — une seule discussion est alors conservée. Se connecter ou créer un compte (`/login`, `/register`) permet d'en garder plusieurs.
 
 ## Prérequis
 
@@ -57,7 +59,26 @@ Le dataset est chargé depuis `data/ohada.xlsx` (fichier local, `DATASET_XLSX_PA
 
 Au lancement, le terminal affiche si Ollama est bien joignable et si le modèle demandé est déjà téléchargé (`[rag] Ollama OK — modèle '...' disponible.`), ainsi que le temps de retrieval/génération pour chaque question.
 
-Ouvrir [http://localhost:8000](http://localhost:8000).
+Ouvrir [http://localhost:8000](http://localhost:8000) (landing page) ou directement [http://localhost:8000/app](http://localhost:8000/app) (chat, sans compte).
+
+## Performance
+
+Les réponses de `/app` sont **streamées** token par token (comme la plupart des chats LLM) : le premier mot apparaît en ~1s au lieu d'attendre la fin de toute la génération, ce qui réduit fortement la latence perçue même si le temps de génération total reste identique.
+
+Sur une machine lente (CPU sans GPU), le modèle par défaut (`OLLAMA_MODEL=qwen2.5:3b`) peut rester lent. Pour aller plus vite au prix d'un raisonnement un peu moins fin :
+
+```bash
+ollama pull qwen2.5:1.5b
+```
+
+puis mettre `OLLAMA_MODEL=qwen2.5:1.5b` dans `.env` et relancer le serveur.
+
+## Comptes, invités et conversations
+
+- **Sans compte** : dès l'arrivée sur `/app`, une identité "invité" est créée automatiquement (cookie de session) et permet de mener **une seule discussion**, consultable en revenant sur la page.
+- **Avec compte** (`/register` puis `/login`) : autant de discussions que voulu, listées et rechargeables depuis la sidebar "Mes discussions". Si une discussion invité était en cours au moment de la connexion, elle est automatiquement rattachée au compte (rien n'est perdu).
+- Les mots de passe sont hashés avec `bcrypt` ; la session est un cookie signé (`SessionMiddleware`, `HttpOnly`, `SameSite=Lax`). Voir `SESSION_SECRET`/`SESSION_HTTPS_ONLY` dans `.env.example`.
+- Toutes les discussions et messages sont stockés dans une base SQLite locale (`APP_DB_PATH`, par défaut `./app.db`, gitignorée).
 
 ## Reconstruire l'index manuellement
 
@@ -71,9 +92,11 @@ Utile après un changement de dataset ou de modèle d'embeddings (il faut alors 
 
 ```
 ingestion/build_index.py   # dataset -> Documents -> embeddings -> Chroma persisté
-app/rag.py                 # vectorstore + appel à Ollama + fonctions ask()/ask_many()
-app/main.py                # API FastAPI (/ask, /ask-batch, /stop, /info) + service de l'UI statique
-app/static/                # interface de chat (HTML/CSS/JS, dark & light, sidebar d'info)
+app/rag.py                  # vectorstore + appel à Ollama (bufferisé ET streamé) + ask()/ask_stream()/ask_many()
+app/db.py                   # stockage SQLite (utilisateurs/invités, conversations, messages)
+app/auth.py                 # hash de mot de passe (bcrypt), identité de session (compte ou invité)
+app/main.py                 # API FastAPI (auth, conversations, /ask streamé, /ask-batch, /info) + pages statiques
+app/static/                 # landing, login/register, chat (HTML/CSS/JS, dark & light, sidebars info + conversations)
 ```
 
 ## Notebook GPU vs version locale
@@ -86,14 +109,30 @@ Si tu as un notebook différent qui charge le modèle directement via `transform
 
 ## Endpoints API
 
+Toutes les routes ci-dessous (sauf auth) fonctionnent aussi bien pour un compte que pour un invité auto-créé — jamais de 401 "non connecté" en soi, seulement un 403 `guest_limit` si un invité tente d'ouvrir une deuxième discussion.
+
 ```
+POST /login        Body: {"username", "password"} -> {"ok": true} (401 si invalide)
+POST /register     Body: {"username", "password"} -> {"ok": true} (400 si nom déjà pris / trop court)
+POST /logout        -> {"ok": true}
+GET  /me            -> {"username": "..." | null, "is_guest": bool}
+
+GET  /conversations                    -> [{"id", "title", "created_at"}, ...]
+POST /conversations                    -> crée une discussion (403 "guest_limit" si invité et déjà 1 discussion)
+GET  /conversations/{id}/messages      -> [{"id","role","content","sources"?,"created_at"}, ...] (404 si pas propriétaire)
+DELETE /conversations/{id}             -> {"ok": true} (404 si pas propriétaire)
+
 POST /ask
-Body: {"question": "..."}
-Réponse: {"answer": "...", "sources": [...], "interrupted": false}
+Body: {"question": "...", "conversation_id": 1 | null}
+Réponse : flux NDJSON (une ligne JSON par événement), pas un JSON unique :
+  {"type": "meta", "conversation_id": 1}
+  {"type": "token", "token": "..."}          (répété au fur et à mesure de la génération)
+  {"type": "done", "answer": "...", "sources": [...], "interrupted": false}
 
 POST /ask-batch
 Body: multipart/form-data avec un fichier "file" (.csv ou .xlsx, colonne "question")
 Réponse: [{"question": "...", "answer": "...", "sources": [...]}, ...]
+(non streamé, et non rattaché à une conversation)
 
 POST /stop
 Interrompt la génération en cours.
@@ -102,3 +141,15 @@ GET /info
 Retourne la configuration réelle du pipeline (dataset, modèle, embeddings, etc.)
 affichée dans la sidebar de l'UI.
 ```
+
+## Sécurité — limites connues
+
+Application pensée pour un usage personnel/petit groupe auto-hébergé, pas un SaaS multi-tenant :
+
+- Cookie de session `HttpOnly` + `SameSite=Lax` (mitigation CSRF informelle, pas de framework CSRF dédié). Mettre `SESSION_HTTPS_ONLY=true` dès que l'app est servie derrière HTTPS.
+- `SESSION_SECRET` doit être fixé (valeur aléatoire stable) dans tout déploiement persistant — sinon une clé éphémère est générée à chaque redémarrage et toutes les sessions (comptes ET invités) sont perdues.
+- Inscription libre en self-service, sans vérification d'email ni invitation : accepté pour ce cadre d'usage ; si l'app est un jour exposée publiquement, ajouter un code d'invitation (comparaison simple d'une variable d'env dans `/register`).
+- Pas de limitation de tentatives sur `/login` : à faire au niveau reverse proxy si l'app est exposée sur internet.
+- Le bouton "Stop" et le moteur RAG sont partagés globalement (une seule instance `RagEngine`) : avec plusieurs utilisateurs simultanés, cliquer sur Stop interrompt la génération en cours quel que soit qui a posé la question. Non corrigé dans cette passe.
+- `app.db` (gitignoré) contient des hashs bcrypt et le contenu des conversations : restreindre ses permissions (`chmod 600 app.db`) en production.
+- Les utilisateurs invités s'accumulent en base tant que leur cookie de session vit (14 jours) ; un nettoyage périodique pourra être ajouté plus tard si la table grossit trop.

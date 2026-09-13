@@ -63,15 +63,22 @@ Ouvrir [http://localhost:8000](http://localhost:8000) (landing page) ou directem
 
 ## Performance
 
-Les réponses de `/app` sont **streamées** token par token (comme la plupart des chats LLM) : le premier mot apparaît en ~1s au lieu d'attendre la fin de toute la génération, ce qui réduit fortement la latence perçue même si le temps de génération total reste identique.
+**Ce qui se passe réellement à chaque question** (pour dissiper le doute : non, le "notebook" n'est pas relancé à chaque interaction) :
 
-Sur une machine lente (CPU sans GPU), le modèle par défaut (`OLLAMA_MODEL=qwen2.5:3b`) peut rester lent. Pour aller plus vite au prix d'un raisonnement un peu moins fin :
+1. **Au démarrage du serveur, une seule fois** (`app/main.py`, fonction `lifespan`) : construction/chargement de l'index Chroma (embeddings du corpus) et création d'une unique instance `RagEngine` (charge le modèle d'embeddings BGE en RAM). Ce coût est payé une fois par démarrage de `uvicorn`/`start.sh`, jamais par question.
+2. **À chaque question** (`app/rag.py`, `_generate`/`_generate_stream`) : seulement une recherche vectorielle Chroma (quasi instantanée, quelques ms sur ~1200 documents) puis un appel à Ollama pour la génération — c'est la seule étape coûteuse par requête, et c'est purement le temps que met le modèle à produire ses tokens sur ton CPU.
 
-```bash
-ollama pull qwen2.5:1.5b
-```
+Le terminal affiche à chaque réponse une ligne `[rag] retrieval: Xs | génération: Ys | total: Zs` — **c'est le premier réflexe pour diagnostiquer une lenteur** : si `retrieval` est élevé (rare), c'est l'index qui a un problème ; si c'est `génération` qui domine (le cas le plus probable), la génération LLM elle-même est le goulot, pas le RAG autour.
 
-puis mettre `OLLAMA_MODEL=qwen2.5:1.5b` dans `.env` et relancer le serveur.
+Les réponses sont **streamées** token par token (comme la plupart des chats LLM) : le premier mot apparaît en ~1s au lieu d'attendre la fin de toute la génération, ce qui réduit la latence *perçue* — mais le temps total pour un paragraphe de 100 tokens sur un CPU 3B reste ce qu'il est. Si `génération` est systématiquement long (dizaines de secondes), les leviers réels sont :
+
+- **Modèle plus petit** — le plus efficace :
+  ```bash
+  ollama pull qwen2.5:1.5b
+  ```
+  puis `OLLAMA_MODEL=qwen2.5:1.5b` dans `.env` (quasi 2x plus rapide, raisonnement un peu moins fin).
+- **`OLLAMA_KEEP_ALIVE`** (nouveau, voir `.env.example`) : par défaut Ollama décharge le modèle de la RAM après 5 minutes d'inactivité — le rechargement depuis le disque au message suivant ajoute plusieurs secondes. `OLLAMA_KEEP_ALIVE=30m` (déjà la valeur par défaut ici) garde le modèle chargé plus longtemps ; `-1` pour ne jamais le décharger si la RAM le permet.
+- **CPU réellement alloué** : sous WSL2/Windows notamment, vérifie que WSL n'est pas bridé (`.wslconfig` — par défaut WSL2 limite parfois la RAM/CPU disponible) et regarde l'usage CPU (`htop`/gestionnaire des tâches) pendant la génération : si un seul cœur tourne à 100% et les autres à 0%, Ollama n'exploite pas tout le CPU disponible.
 
 ## Comptes, invités et conversations
 

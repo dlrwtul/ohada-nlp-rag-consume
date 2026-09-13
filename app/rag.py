@@ -18,6 +18,11 @@ DATASET_NAME = os.getenv("DATASET_NAME", "uriel/Maathis_Ohada_dataset")
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
+# Combien de temps Ollama garde le modèle chargé en RAM après la dernière requête.
+# Par défaut Ollama décharge le modèle au bout de 5 minutes d'inactivité ; le
+# rechargement depuis le disque au message suivant peut à lui seul prendre
+# plusieurs secondes. "30m" évite ce coût pour un usage interactif normal.
+OLLAMA_KEEP_ALIVE = os.getenv("OLLAMA_KEEP_ALIVE", "30m")
 
 K_RETRIEVAL = 2
 MAX_NEW_TOKENS = 100
@@ -69,6 +74,7 @@ class RagEngine:
                 "model": OLLAMA_MODEL,
                 "prompt": prompt,
                 "stream": True,
+                "keep_alive": OLLAMA_KEEP_ALIVE,
                 "options": {"num_predict": MAX_NEW_TOKENS, "temperature": 0},
             },
             stream=True,
@@ -127,6 +133,7 @@ class RagEngine:
                 "model": OLLAMA_MODEL,
                 "prompt": prompt,
                 "stream": True,
+                "keep_alive": OLLAMA_KEEP_ALIVE,
                 "options": {"num_predict": MAX_NEW_TOKENS, "temperature": 0},
             },
             stream=True,

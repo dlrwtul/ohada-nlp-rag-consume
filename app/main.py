@@ -186,7 +186,9 @@ async def get_conversation_messages(conversation_id: int, user_id: int = Depends
     for m in db.list_messages(conversation_id):
         item = {"id": m["id"], "role": m["role"], "content": m["content"], "created_at": m["created_at"]}
         if m["sources_json"]:
-            item["sources"] = json.loads(m["sources_json"])
+            stored = json.loads(m["sources_json"])
+            item["sources"] = stored.get("sources", [])
+            item["reference"] = stored.get("reference")
         messages.append(item)
     return messages
 
@@ -217,15 +219,16 @@ async def ask(payload: Question, user_id: int = Depends(auth.get_or_create_user_
     def event_stream():
         answer = ""
         sources = []
+        reference = None
         yield json.dumps({"type": "meta", "conversation_id": conversation_id}) + "\n"
         for event in engine.ask_stream(payload.question):
             if event["type"] == "done":
                 answer = event["answer"]
                 sources = event["sources"]
+                reference = event["reference"]
             yield json.dumps(event, ensure_ascii=False) + "\n"
-        db.add_message(
-            conversation_id, "assistant", answer, sources_json=json.dumps(sources, ensure_ascii=False)
-        )
+        stored = json.dumps({"sources": sources, "reference": reference}, ensure_ascii=False)
+        db.add_message(conversation_id, "assistant", answer, sources_json=stored)
 
     return StreamingResponse(iterate_in_threadpool(event_stream()), media_type="application/x-ndjson")
 

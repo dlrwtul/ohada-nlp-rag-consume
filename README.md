@@ -53,7 +53,7 @@ ollama serve
 uvicorn app.main:app --reload
 ```
 
-Au premier démarrage, si aucun index Chroma n'existe dans `CHROMA_DIR` (par défaut `./chroma_db`), l'app construit les embeddings et persiste l'index automatiquement à partir du dataset. Les démarrages suivants réutilisent l'index existant.
+Au premier démarrage, si aucun index Chroma n'existe dans `CHROMA_DIR` (par défaut `./chroma_db_v2`), l'app découpe le corpus en chunks (~1000 caractères, `RecursiveCharacterTextSplitter`), construit les embeddings et persiste l'index automatiquement. Les démarrages suivants réutilisent l'index existant.
 
 Le dataset est chargé depuis `data/ohada.xlsx` (fichier local, `DATASET_XLSX_PATH`) s'il est présent — c'est le cas par défaut dans ce repo, donc tout fonctionne 100% hors-ligne dès le premier lancement. S'il est absent, il est téléchargé depuis le Hub Hugging Face (`DATASET_NAME=uriel/Maathis_Ohada_dataset`).
 
@@ -66,7 +66,7 @@ Ouvrir [http://localhost:8000](http://localhost:8000) (landing page) ou directem
 **Ce qui se passe réellement à chaque question** (pour dissiper le doute : non, le "notebook" n'est pas relancé à chaque interaction) :
 
 1. **Au démarrage du serveur, une seule fois** (`app/main.py`, fonction `lifespan`) : construction/chargement de l'index Chroma (embeddings du corpus) et création d'une unique instance `RagEngine` (charge le modèle d'embeddings BGE en RAM). Ce coût est payé une fois par démarrage de `uvicorn`/`start.sh`, jamais par question.
-2. **À chaque question** (`app/rag.py`, `_generate`/`_generate_stream`) : seulement une recherche vectorielle Chroma (quasi instantanée, quelques ms sur ~1200 documents) puis un appel à Ollama pour la génération — c'est la seule étape coûteuse par requête, et c'est purement le temps que met le modèle à produire ses tokens sur ton CPU.
+2. **À chaque question** (`app/rag.py`, `_generate`/`_generate_stream`) : seulement une recherche vectorielle Chroma (quasi instantanée même sur plusieurs milliers de chunks) puis un appel à Ollama pour la génération — c'est la seule étape coûteuse par requête, et c'est purement le temps que met le modèle à produire ses tokens sur ton CPU.
 
 Le terminal affiche à chaque réponse une ligne `[rag] retrieval: Xs | génération: Ys | total: Zs` — **c'est le premier réflexe pour diagnostiquer une lenteur** : si `retrieval` est élevé (rare), c'est l'index qui a un problème ; si c'est `génération` qui domine (le cas le plus probable), la génération LLM elle-même est le goulot, pas le RAG autour.
 
@@ -89,41 +89,43 @@ Les réponses sont **streamées** token par token (comme la plupart des chats LL
 python -m ingestion.build_index
 ```
 
-Utile après un changement de dataset ou de modèle d'embeddings (il faut alors supprimer le dossier `chroma_db/` existant avant de relancer).
+Utile après un changement de dataset ou de modèle d'embeddings (il faut alors supprimer le dossier `CHROMA_DIR` existant avant de relancer).
 
 ## Structure
 
 ```
-ingestion/build_index.py   # dataset -> Documents -> embeddings -> Chroma persisté
+ingestion/build_index.py   # dataset -> chunks (RecursiveCharacterTextSplitter) -> embeddings -> Chroma persisté
 app/rag.py                  # vectorstore + appel à Ollama (bufferisé ET streamé) + ask()/ask_stream()/ask_many()
+app/references.py           # détection de l'Acte Uniforme + numéro d'article cités par un document (table ACTES)
 app/db.py                   # stockage SQLite (utilisateurs/invités, conversations, messages)
 app/auth.py                 # hash de mot de passe (bcrypt), identité de session (compte ou invité)
 app/main.py                 # API FastAPI (auth, conversations, /ask streamé, /ask-batch, /info) + pages statiques
 app/static/                 # landing, login/register, chat (HTML/CSS/JS, dark & light, sidebars info + conversations)
+notebook/                   # notebooks GPU (Colab) et CPU (Ollama) + vrais fichiers du concours (Test/Eval/SampleSubmission.csv)
 ```
 
 ## Notebook GPU vs version locale
 
-Le notebook `notebook/NLP_project_ollama.ipynb` de ce repo est la version **sans GPU** : il remplace le chargement direct d'un modèle en 4-bit (bitsandbytes, nécessite une carte comme la Tesla T4) par un appel à Ollama, qui sert le même modèle quantifié (GGUF) et tourne très bien sur CPU. C'est celui-là qu'il faut utiliser sur une machine sans GPU — l'app FastAPI (`app/`) en est l'équivalent packagé.
+- `notebook/NLP_project_rag_ohada_gpu_from_xlsx.ipynb` — version **GPU** (Colab, T4) : chunking (`RecursiveCharacterTextSplitter`), embeddings `BAAI/bge-m3` (lourd mais très précis, tourne sur GPU), génération par `mistral-community/Mistral-7B-Instruct-v0.3` (Apache-2.0, 4-bit via bitsandbytes). Ouvrir dans Colab, `Exécution > Modifier le type d'exécution > GPU (T4)`, uploader `data/ohada.xlsx` + `Test.csv`/`Eval.csv` dans l'environnement (panneau fichiers à gauche).
+- `notebook/NLP_project_ollama.ipynb` — version **sans GPU** : même chunking, mais embeddings `BAAI/bge-small-en-v1.5` (léger, rapide sur CPU) et génération via Ollama (`qwen2.5:1.5b`, Apache-2.0). C'est celui-là qu'il faut utiliser sur une machine sans GPU — l'app FastAPI (`app/`) en est l'équivalent packagé (mêmes choix : chunking + bge-small + Ollama).
 
-Si tu as un notebook différent qui charge le modèle directement via `transformers`/`bitsandbytes` (comme celui qui vérifie `nvidia-smi` / Tesla T4), deux options :
-- L'adapter comme `notebook/NLP_project_ollama.ipynb` (remplacer les cellules de chargement du modèle + génération par les appels à Ollama ci-dessus) pour le faire tourner en local sans GPU.
-- Le lancer tel quel sur [Google Colab](https://colab.research.google.com/) : `Fichier > Importer un notebook`, puis `Exécution > Modifier le type d'exécution > GPU (T4)` (disponible gratuitement, avec quotas d'usage). Il faut alors aussi uploader `data/ohada.xlsx` dans l'environnement Colab (panneau fichiers à gauche, ou `from google.colab import drive`) puisque `pd.read_excel('ohada.xlsx')` lit un fichier local à l'environnement d'exécution.
+Les deux notebooks partagent la même logique de détection d'Acte Uniforme/article (table `ACTES`, voir plus bas) et la même carte HTML de présentation de la réponse.
 
 ## Concours Zindi — LLM pour le droit OHADA
 
 Ce repo est aligné sur le règlement du concours *Large Language Model Challenge on OHADA Law* (data354/Zindi) :
 
-- **Modèle open-source** : `qwen2.5:1.5b` (Apache-2.0) par défaut pour l'app/notebook Ollama ; `mistralai/Mistral-7B-Instruct-v0.3` (Apache-2.0, cité en exemple dans le règlement) pour le notebook GPU — `qwen2.5:3b` reste utilisable via `OLLAMA_MODEL` mais sa licence Qwen Research (non-commerciale) le rend non conforme à l'exigence "LLM open-source uniquement" — à éviter pour une soumission.
+- **Modèle open-source** : `qwen2.5:1.5b` (Apache-2.0) pour l'app/notebook Ollama ; `mistral-community/Mistral-7B-Instruct-v0.3` (Apache-2.0, cité en exemple dans le règlement, mirroir non *gated* donc pas de token HF requis) pour le notebook GPU. `qwen2.5:3b` reste utilisable via `OLLAMA_MODEL` mais sa licence Qwen Research (non-commerciale) le rend non conforme à l'exigence "LLM open-source uniquement" — à éviter pour une soumission.
 - **Matériel** : app/notebook Ollama tournent entièrement sur CPU ; le notebook GPU tient en 4-bit sur un simple Colab T4 gratuit — les deux respectent la contrainte matérielle du règlement.
-- **Vrais fichiers du concours** (`notebook/Test.csv`, `notebook/Eval.csv`, `notebook/SampleSubmission.csv`) : maintenant présents dans le repo. Format réel confirmé (différent de l'exemple pivoté `ID_Answer`/`ID_Document_de_Référence`/`ID_Numéro_d'Article` du texte du règlement, qui s'est avéré ne pas correspondre au vrai `SampleSubmission.csv`) :
-  - `Test.csv` : colonnes `ID`, `Question` (10 questions).
-  - `SampleSubmission.csv` : colonnes `ID`, `Answer` — une seule ligne par question, réponse en texte libre (les références d'articles peuvent être citées dans le texte de la réponse elle-même, pas dans des colonnes séparées).
-  - `Eval.csv` : `ID`, `Question`, `Answer` (réponse de référence), `Context`, `Act_Title` (5 exemples labellisés).
-- **Notebook de soumission** : `notebook/NLP_project_ollama.ipynb` (et son équivalent GPU) génèrent `submission.csv` en lisant `Test.csv` et en écrivant directement `ID`/`Answer` — format vérifié identique à `SampleSubmission.csv` (mêmes colonnes, mêmes ID, même ordre).
-- **Métrique Phase 2** (`calculer_metrique`) : tourne maintenant sur le vrai `Eval.csv`. Combine 50% ROUGE-1 (réponse générée vs `Answer` de référence) et 50% d'exactitude sur l'acte cité (comparaison avec `Act_Title`, prédit via une regex `extraire_reference` qui repère les motifs `ARTICLE <numéro> <ABRÉVIATION>` dans le document récupéré — heuristique simple, pas une garantie d'exactitude). Écrit `evaluation.csv`.
+- **Vrais fichiers complets du concours**, présents dans `notebook/` :
+  - `Test.csv` : 46 questions (`TEST_0001`…`TEST_0046`), colonnes `ID`/`Question`.
+  - `Eval.csv` : 89 exemples labellisés, colonnes `ID`/`Question`/`Answer`/`Context`/`Act_Title`/`Article_Number`.
+  - `SampleSubmission.csv` : 138 lignes (46 questions × 3) — confirme le format **pivoté** : `ID`/`Target`, avec pour chaque question 3 lignes `{ID}_Answer`, `{ID}_Document_de_Reference`, `{ID}_Numero_d_Article`.
+- **Détection d'Acte Uniforme/article** (`ACTES`, `detecter_acte`, `detecter_article` — dupliqué dans les deux notebooks, et `app/references.py` pour l'app) : une table des 10 Actes Uniformes avec leurs motifs de détection propres, un score par comptage d'occurrences (pas juste le premier motif trouvé) pour choisir l'acte le plus probable, et le numéro d'article le plus fréquent dans le document. Remplace une ancienne regex unique (`ARTICLE <n> <ABRÉVIATION>`) qui confondait parfois un mot de liaison avec l'acronyme.
+- **Notebooks de soumission** : lisent `Test.csv`, génèrent `submission.csv` au format pivoté — vérifié identique à `SampleSubmission.csv` (mêmes 138 ID, même ordre, mêmes colonnes).
+- **Métrique Phase 2** (`calculer_metrique`) : tourne sur le vrai `Eval.csv`. Combine 40% ROUGE-1 (réponse générée vs `Answer` de référence) + 30% exactitude de l'acte cité (vs `Act_Title`) + 30% exactitude du numéro d'article (vs `Article_Number`). Écrit `evaluation.csv`.
 
-**Point restant non résolu** : le règlement mentionne aussi "extraire les verbes et les noms et les remplir dans l'ordre où ils apparaissent" pour chaque réponse — cette formulation ne correspond à rien dans le vrai `SampleSubmission.csv` (qui n'a que 2 colonnes `ID`/`Answer`, pas de colonnes verbes/noms séparées). Le format réel confirmé prime sur cette phrase ambiguë du texte du règlement ; à signaler aux organisateurs en cas de doute plutôt qu'à deviner.
+**Point restant non résolu** : le règlement mentionne aussi "extraire les verbes et les noms et les remplir dans l'ordre où ils apparaissent" pour chaque réponse — formulation qui ne correspond à rien de visible dans `SampleSubmission.csv`/`Eval.csv`. Non implémenté faute de spécification claire ; à clarifier auprès des organisateurs plutôt qu'à deviner.
 
 ## Endpoints API
 
@@ -137,7 +139,7 @@ GET  /me            -> {"username": "..." | null, "is_guest": bool}
 
 GET  /conversations                    -> [{"id", "title", "created_at"}, ...]
 POST /conversations                    -> crée une discussion (403 "guest_limit" si invité et déjà 1 discussion)
-GET  /conversations/{id}/messages      -> [{"id","role","content","sources"?,"created_at"}, ...] (404 si pas propriétaire)
+GET  /conversations/{id}/messages      -> [{"id","role","content","sources"?,"reference"?,"created_at"}, ...] (404 si pas propriétaire)
 DELETE /conversations/{id}             -> {"ok": true} (404 si pas propriétaire)
 
 POST /ask
@@ -145,7 +147,11 @@ Body: {"question": "...", "conversation_id": 1 | null}
 Réponse : flux NDJSON (une ligne JSON par événement), pas un JSON unique :
   {"type": "meta", "conversation_id": 1}
   {"type": "token", "token": "..."}          (répété au fur et à mesure de la génération)
-  {"type": "done", "answer": "...", "sources": [...], "interrupted": false}
+  {"type": "done", "answer": "...", "sources": [...], "reference": {"acronyme","slug","article"} | null, "interrupted": false}
+
+"reference" (voir app/references.py) : l'Acte Uniforme et le numéro d'article détectés
+dans le document le plus pertinent récupéré — affiché en badge sous la réponse dans l'UI.
+null si aucun acte n'a pu être identifié dans le document.
 
 POST /ask-batch
 Body: multipart/form-data avec un fichier "file" (.csv ou .xlsx, colonne "question")

@@ -10,10 +10,12 @@ from langchain_chroma import Chroma
 from langchain_core.prompts import PromptTemplate
 from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 
+from app.references import extraire_reference
+
 load_dotenv()
 
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
-CHROMA_DIR = os.getenv("CHROMA_DIR", "./chroma_db")
+CHROMA_DIR = os.getenv("CHROMA_DIR", "./chroma_db_v2")
 DATASET_NAME = os.getenv("DATASET_NAME", "uriel/Maathis_Ohada_dataset")
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
@@ -34,6 +36,22 @@ Question: {question}
 Context: {context}
 Answer: """
 )
+
+
+def _build_sources(retrieved_docs) -> list[dict]:
+    return [
+        {"title": doc.metadata.get("title"), "details": doc.metadata.get("details")}
+        for doc in retrieved_docs
+    ]
+
+
+def _build_reference(retrieved_docs) -> dict | None:
+    if not retrieved_docs:
+        return None
+    acronyme, slug, article = extraire_reference(retrieved_docs[0])
+    if not acronyme:
+        return None
+    return {"acronyme": acronyme, "slug": slug, "article": article}
 
 
 class RagEngine:
@@ -112,14 +130,12 @@ class RagEngine:
             f"total: {t2 - t0:.2f}s"
         )
 
-        sources = [
-            {
-                "title": doc.metadata.get("title"),
-                "details": doc.metadata.get("details"),
-            }
-            for doc in retrieved_docs
-        ]
-        return {"answer": answer, "sources": sources, "interrupted": self.stop_event.is_set()}
+        return {
+            "answer": answer,
+            "sources": _build_sources(retrieved_docs),
+            "reference": _build_reference(retrieved_docs),
+            "interrupted": self.stop_event.is_set(),
+        }
 
     def ask(self, query: str, k: int = K_RETRIEVAL) -> dict:
         self.stop_event.clear()
@@ -174,17 +190,11 @@ class RagEngine:
             f"total: {t2 - t0:.2f}s"
         )
 
-        sources = [
-            {
-                "title": doc.metadata.get("title"),
-                "details": doc.metadata.get("details"),
-            }
-            for doc in retrieved_docs
-        ]
         yield {
             "type": "done",
             "answer": "".join(answer_parts).strip(),
-            "sources": sources,
+            "sources": _build_sources(retrieved_docs),
+            "reference": _build_reference(retrieved_docs),
             "interrupted": self.stop_event.is_set(),
         }
 

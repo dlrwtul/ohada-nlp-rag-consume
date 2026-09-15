@@ -307,7 +307,7 @@
         const el = document.createElement("div");
         el.className = "msg msg-assistant";
         messagesEl.appendChild(el);
-        renderAssistantMessage(el, { answer: m.content, sources: m.sources || [] });
+        renderAssistantMessage(el, { answer: m.content, sources: m.sources || [], reference: m.reference });
       }
     });
 
@@ -402,12 +402,20 @@
       )
       .join("");
 
+    const ref = data.reference;
+    const refHtml = ref
+      ? `<div class="ref-badge"><span class="ref-badge-ic">§</span>${escapeHtml(ref.acronyme)}${
+          ref.article ? ` — Article ${escapeHtml(ref.article)}` : ""
+        }</div>`
+      : "";
+
     el.innerHTML = `
       <div class="msg-header">
         <span class="msg-avatar">Assistant OHADA</span>
         <button type="button" class="speak-btn" aria-label="Écouter la réponse" title="Écouter la réponse">${SPEAK_ICON}</button>
       </div>
       <div class="msg-bubble">${escapeHtml(data.answer)}</div>
+      ${refHtml}
       ${
         sourcesHtml
           ? `<details class="sources">
@@ -591,7 +599,7 @@
       }
 
       if (finalData) {
-        renderAssistantMessage(typingEl, { answer: finalData.answer, sources: finalData.sources });
+        renderAssistantMessage(typingEl, { answer: finalData.answer, sources: finalData.sources, reference: finalData.reference });
       } else if (!receivedAnyToken) {
         renderError(typingEl, "Désolé, aucune réponse reçue. Réessayez.");
       }

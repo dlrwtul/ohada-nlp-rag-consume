@@ -1,11 +1,139 @@
-ID,Answer
-Q_001,"Selon l'Article 311 de l'Acte Uniforme relatif au droit des sociétés commerciales et du GIE, la SARL est constituée par acte sous seing privé ou acte notarié..."
-Q_002,"Aux termes de l'Article 125 de l'AUDCG, le congé doit être signifié par acte d'huissier au moins six mois à l'avance..."
-Q_003,"Conformément à l'AUPSRVE (Article 28), les voies d'exécution comprennent la saisie-attribution de créances, la saisie-vente, et la saisie immobilière..."
-Q_004,"En vertu de l'AUPCAP, la responsabilité des dirigeants peut être engagée en cas de faute de gestion ayant contribué à l'insuffisance d'actif..."
-Q_005,"L'Article 44 de l'AUDCG dispose que la demande d'immatriculation au RCCM doit mentionner l'état civil, la dénomination sociale, le siège..."
-Q_006,"Selon l'Article 16 de l'AUDCG, les obligations nées à l'occasion de leur commerce entre commerçants se prescrivent par cinq ans..."
-Q_007,L'Article 9 du Redressement Judiciaire suspend toute action en justice de la part de tous les créanciers composant la masse...
-Q_008,Le gage sans dépossession doit être constitué par écrit et inscrit au RCCM pour être opposable aux tiers (Article 92 AUS)...
-Q_009,Le transporteur est présumé responsable des pertes et avaries survenues entre la prise en charge et la livraison (Article 16 AUCTMR)...
-Q_010,Le recours en annulation n'est recevable que si le tribunal arbitral a statué sans convention d'arbitrage ou sur convention nulle (Article 26 AUAr)...
+ID,Target
+TEST_0001_Answer,La requérante invoque à l’appui de son pourvoi le moyen unique de cassation tel qu’ilfigure à la requête annexée au présent arrêt ;
+TEST_0001_Document_de_Reference,AU_arbitrage
+TEST_0001_Numero_d_Article,1
+TEST_0002_Answer,"Les impôts ayant un caractère autoritaire et régalien, leur paiement ne peut être affecté par le coefficient prévu à l’article 177 de l’AUPSRVE déterminé, en l’espèce, à l’article 5.4.13.5 du Règlement portant statut du personnel de l’OHADA, ces textes étant inapplicables en matière de fiscalité."
+TEST_0002_Document_de_Reference,AU_recouvrement
+TEST_0002_Numero_d_Article,5
+TEST_0003_Answer,"Aux termes de l’article 23 de l’AUPCAP (ancien), seule la voie d’appel est autorisée dans les quinze jours du prononcé de la décision relative au règlement préventif."
+TEST_0003_Document_de_Reference,AU_procedures_collectives
+TEST_0003_Numero_d_Article,23
+TEST_0004_Answer,"l est constant comme résultant des pièces du dossier de la procédure, que Monsieur YOMI François a procédé à deux dénonciations de la même saisie à la BICEC, l’une le 01 mars 2002 et l’autre le 08 mars 2002 ;"
+TEST_0004_Document_de_Reference,AU_recouvrement
+TEST_0004_Numero_d_Article,170
+TEST_0005_Answer,"Il en est ainsi dès lors que ce délai n’est pas concerné par le renvoi au droit national des Etats-parties opéré par le texte, lequel ne prévoit pas le relevé de forclusion.ARTICLE 15 AUPSRVECCJA, 1ère ch., n° 100/2015 du 23 juillet 2015 ;"
+TEST_0005_Document_de_Reference,AU_recouvrement
+TEST_0005_Numero_d_Article,15
+TEST_0006_Answer,"l résulte de l’article 84 de l’Acte uniforme susvisé, disposant que « les dispositions des articles 158 et 159, 165 à 168, des 2° et 3° alinéas de l’article 170, des articles 171 et 172 ci-après sont applicables », que l’article 167 dudit Acte uniforme, aux termes duquel « La saisie ne produit plus d’effet lorsque le tiers saisi cesse d’être tenu envers le débiteur."
+TEST_0006_Document_de_Reference,AU_recouvrement
+TEST_0006_Numero_d_Article,84
+TEST_0007_Answer,"Qu’en se déterminant ainsi, elle ajoute à l’article 159 des conditions qu’il ne pose pas ;"
+TEST_0007_Document_de_Reference,AU_arbitrage
+TEST_0007_Numero_d_Article,159
+TEST_0008_Answer,"Eu égard aux dispositions de l’article 32 alinéa 2 du même Acte uniforme, les actes d’exécution déjà accomplis peuvent être poursuivis jusqu’à leur terme aux risques du créancier saisissant."
+TEST_0008_Document_de_Reference,AU_recouvrement
+TEST_0008_Numero_d_Article,32
+TEST_0009_Answer,"qu’en réplique, la BSIC-Côte d’Ivoire s’opposait à la demande de mainlevée formulée par la CIMAF, en faisant valoir la non-conformité de l’ordonnance présidentielle à l’article 32 de l’Acte uniforme portant organisation des procédures simplifiées de recouvrement et des voies d’exécution ;"
+TEST_0009_Document_de_Reference,AU_recouvrement
+TEST_0009_Numero_d_Article,32
+TEST_0010_Answer,"Qu’il ya lieu en conséquence en application de l’article 49-4 sus énoncé de déclarer la demande en révision introduite par FAGACE irrecevable pour forclusion et de le condamner aux dépens ;PAR CES MOTIFS Statuant publiquement, après en avoir délibéré, Déclare irrecevable la requête en révision formée par le FAGACE ;"
+TEST_0010_Document_de_Reference,AU_arbitrage
+TEST_0010_Numero_d_Article,49
+TEST_0011_Answer,Il résulte de l’article 13 de l’AUPSRVE que la charge de la preuve de la créanceincombe au demandeur à l’injonction de payer.
+TEST_0011_Document_de_Reference,AU_arbitrage
+TEST_0011_Numero_d_Article,13
+TEST_0012_Answer,"n l’espèce, il ressort des productions que la SAFCA a, par déclaration verbale en date du 22 septembre 2005, fait opposition à l’ordonnance d’injonction de restituer n° 3538/2005 rendue le 1er septembre 2005 par la juridiction présidentielle du Tribunal de Première Instance d’Abidjan Plateau ;"
+TEST_0012_Document_de_Reference,AU_arbitrage
+TEST_0012_Numero_d_Article,9
+TEST_0013_Answer,"Félix, Avocat à la Cour, Conseil de la Société Générale de Banques en Côte d’Ivoire, partie défenderesse, a déclaré prendre acte du désistement des demandeurs de leur recours ;Attendu qu’aux termes de l’article 44 du Règlement de Procédure :« 1."
+TEST_0013_Document_de_Reference,AU_arbitrage
+TEST_0013_Numero_d_Article,44
+TEST_0014_Answer,"qu’en retenant que le commandement servi le 28 juillet 2003 ne produit pas les effets indiqués à l‘article 219 du code précité, la cour d’appel n’a en rien commis le grief visé au moyen ;"
+TEST_0014_Document_de_Reference,AU_arbitrage
+TEST_0014_Numero_d_Article,219
+TEST_0015_Answer,qu’en tout état de cause l’article 163 du code de procédure civile Togolais est inapplicable ;
+TEST_0015_Document_de_Reference,AU_recouvrement
+TEST_0015_Numero_d_Article,163
+TEST_0016_Answer,1) Reçoit la Banque Atlantique du Niger en son appel régulier en la forme ;
+TEST_0016_Document_de_Reference,AU_surete
+TEST_0016_Numero_d_Article,3
+TEST_0017_Answer,"- ARTICLE 30.2 DU RÈGLEMENT D’ARBITRAGE.Selon l’article 30.2 du Règlement d’arbitrage de la CCJA, l’exequatur d’une sentence arbitrale est accordé à l’occasion d’une procédure non contradictoire par une ordonnance du Président de la Cour ou du juge délégué à cet effet, et confère à la sentence un caractère exécutoire dans tous les Etats parties ;"
+TEST_0017_Document_de_Reference,AU_arbitrage
+TEST_0017_Numero_d_Article,30
+TEST_0018_Answer,que les prescriptions de l’article 34 de l’Acte uniforme sus indiqué sur la production du certificat de non appel et de non opposition de la décision juridictionnelle invoquée à l’égard d’un tiers n’ont pas été respectées ;
+TEST_0018_Document_de_Reference,AU_arbitrage
+TEST_0018_Numero_d_Article,34
+TEST_0019_Answer,"C’est à tort qu’une cour d’appel a confirmé la décision rendue sur opposition contre l’ordonnance obtenue dans ces conditions et son arrêt encourt la cassation.ARTICLE 1 AUPSRVE ARTICLE 4 AUPSRVE ARTICLE 7 AUPSRVECour Commune de Justice et d’Arbitrage, 2ème ch., Arrêt n° 012/2013 du 07 mars 2013 ;"
+TEST_0019_Document_de_Reference,AU_arbitrage
+TEST_0019_Numero_d_Article,4
+TEST_0020_Answer,"qu’en outre, l’observation faite sur l’article 2 du Traité institutif de l’OHADA sur le domaine du droit des affaires et 49 sus indiqué sur la procédure de liquidation de l’astreinte ne critique nullement l’arrêt attaqué ;"
+TEST_0020_Document_de_Reference,AU_arbitrage
+TEST_0020_Numero_d_Article,2
+TEST_0021_Answer,"qu’en déclarant irrecevable comme intervenu hors délai, l’appel formé le 5 octobre 2009 contre le jugement sur opposition rendu le 17 juin 2009, la Cour d’appel n’a en rien violé l’article 15 de l’Acte uniforme sus indiqué ;"
+TEST_0021_Document_de_Reference,AU_recouvrement
+TEST_0021_Numero_d_Article,15
+TEST_0022_Answer,"n° 221/2014/PC du 17/12/2014 : Etat de Guinée, représenté par l’Agent Judiciaire de l’Etat c/ Société Mill Impression, représentée par son D.G."
+TEST_0022_Document_de_Reference,AU_arbitrage
+TEST_0022_Numero_d_Article,13
+TEST_0023_Answer,"Mais d’ores et déjà,4Vu l’urgence, Rejette la demande de l’ASECNA Article 2 comme mal fondée ;"
+TEST_0023_Document_de_Reference,AU_recouvrement
+TEST_0023_Numero_d_Article,2
+TEST_0024_Answer,Les dispositions de l’article 156 de l’AUPSRVE ne subordonnent pas la condamnation du tiers-saisi au paiement des causes de la saisie à la démonstration d’un préjudice qu’aurait subi le créancier saisissant du fait de la déclaration inexacte du tiers-saisi.
+TEST_0024_Document_de_Reference,AU_arbitrage
+TEST_0024_Numero_d_Article,156
+TEST_0025_Answer,En conséquence confirme le jugement n°041 du 17 avril 2008 du tribunal de premièreinstance de Kaloum en toutes ses dispositions ;
+TEST_0025_Document_de_Reference,AU_arbitrage
+TEST_0025_Numero_d_Article,13
+TEST_0026_Answer,Infirme l’ordonnance querellée en ce qu’elle a débouté KONAN YAO Augustin de sesdemandes ;
+TEST_0026_Document_de_Reference,AU_arbitrage
+TEST_0026_Numero_d_Article,13
+TEST_0027_Answer,"Félix, Avocat à la Cour, y demeurant Plateau, Résidence Roume, 20 BP 693 Abidjan 20,en cassation de l’arrêt n°167 rendu le 28 mars 2008 par la cour d’appel d’Abidjan,dont le dispositif est le suivant : « Statuant publiquement contradictoirement, en matière civile et en dernier ressort ;"
+TEST_0027_Document_de_Reference,AU_arbitrage
+TEST_0027_Numero_d_Article,14
+TEST_0028_Answer,"Les décisions judiciaires rendues en matière immobilière et relatives à la vérification des consignations, à l’appel des enchérisseurs devant la barre et au délai de l’adjudication ne relèvent pas de la catégorie de celles susceptibles l’appel telles que prévues par l’article 300 alinéa 2 de l’AUPSRVE."
+TEST_0028_Document_de_Reference,AU_recouvrement
+TEST_0028_Numero_d_Article,300
+TEST_0029_Answer,Les jugements rendus en audience éventuelle ne sont susceptibles d’appel que dans les conditions limitativement énumérées par l’article 300 de l’Acte uniforme portant organisation des procédures simplifiées de recouvrement et des voies d’exécution.
+TEST_0029_Document_de_Reference,AU_recouvrement
+TEST_0029_Numero_d_Article,300
+TEST_0030_Answer,"C’est l’article 172 de l’AUPSRVE, et non l’article 49 du même Acte uniforme, qui réglemente le délai et le point de départ de l’appel de toute contestation relative à une saisie- attribution."
+TEST_0030_Document_de_Reference,AU_recouvrement
+TEST_0030_Numero_d_Article,172
+TEST_0031_Answer,"L’article 157 de l’AUPSRVE ne faisant aucune obligation d’avoir à réclamer les intérêts, le défaut de leur indication dans l’acte de saisie ne remet pas en cause la validité de celui-ci dès lors que ceux-ci ne sont pas réclamés par le saisissant."
+TEST_0031_Document_de_Reference,AU_arbitrage
+TEST_0031_Numero_d_Article,157
+TEST_0032_Answer,"en l’espèce, la demande de sursis étant relative à un arrêt rendu par la Cour d’appel du Littoral (Cameroun) il y a lieu, dès lors, de se déclarer incompétent à connaître de ladite demande ;ORDONNANCE N° 005/2012/CCJA, (Article 46 du Règlement de procédure)."
+TEST_0032_Document_de_Reference,AU_arbitrage
+TEST_0032_Numero_d_Article,46
+TEST_0033_Answer,"qu’un tel jugement doit être déclaré nul ou inexistant ;Attendu que la SCI Les Merveilles sous la plume de son conseil la SCPA Ahoussou, Konanet Associés a soulevé l’irrecevabilité de l’appel en se fondant sur les dispositions de l’article 300 susvisé ;"
+TEST_0033_Document_de_Reference,AU_recouvrement
+TEST_0033_Numero_d_Article,300
+TEST_0034_Answer,"qu’il résulte clairement de l’Arrêt n° 109 du 24 juin 2002 de la Cour Suprême que, l’article 116 portant organisation des procédures simplifiées de recouvrement et des voies d’exécution a été violé ;"
+TEST_0034_Document_de_Reference,AU_arbitrage
+TEST_0034_Numero_d_Article,116
+TEST_0035_Answer,"que selon les dispositions de l’article 189 de l’Acte uniforme relatif au droit des sociétés commerciales et du groupement d’intérêt économique, la fusion entraine la transmission à titre universel du patrimoine de la société absorbée, qui disparait du fait de la fusion, à la société absorbante ;"
+TEST_0035_Document_de_Reference,AU_societe
+TEST_0035_Numero_d_Article,189
+TEST_0036_Answer,qu’entre la date de l’opposition et celle de l’assignation il y a un délai d’ajournement supérieur à celui prévu par l’article 11 ;
+TEST_0036_Document_de_Reference,AU_arbitrage
+TEST_0036_Numero_d_Article,11
+TEST_0037_Answer,"que de tout ce qui précède, il s’ensuit que la Cour d’appel d’Owando n’a en rien violé les dispositions de l’article 29 de l’Acte uniforme sus-indiqué ;"
+TEST_0037_Document_de_Reference,AU_procedures_collectives
+TEST_0037_Numero_d_Article,29
+TEST_0038_Answer,"Le requérant invoque à l’appui de son recours les quatre moyens de cassation, tels qu’ils figurent à la requête annexée au présent arrêt;"
+TEST_0038_Document_de_Reference,AU_arbitrage
+TEST_0038_Numero_d_Article,14
+TEST_0039_Answer,Déclare la Société Internationale de Commerce de Produits Tropicaux recevable en son appel ;
+TEST_0039_Document_de_Reference,AU_recouvrement
+TEST_0039_Numero_d_Article,1
+TEST_0040_Answer,"qu’en énonçant que la simple assignation ne peut être assimilée à une saisine de la juridiction qui requiert en plus l’accomplissement de certaines formalités et en prononçant la mainlevée de l’hypothèque pour cause de caducité de l’ordonnance Payant autorisée, la Cour d’appel a violé les dispositions de l’article 136 sus indiqué ;"
+TEST_0040_Document_de_Reference,AU_surete
+TEST_0040_Numero_d_Article,136
+TEST_0041_Answer,"qu’il suit qu’en statuant comme elle l’a fait, la Cour d’Appel de Bamako a violé, par fausse application, l’article 247 précité et, par refus d’application, l’article 136 susvisé ;"
+TEST_0041_Document_de_Reference,AU_surete
+TEST_0041_Numero_d_Article,136
+TEST_0042_Answer,"Le moyen, étant de pur droit, peut être proposé pour la première fois en cassation ;"
+TEST_0042_Document_de_Reference,AU_arbitrage
+TEST_0042_Numero_d_Article,13
+TEST_0043_Answer,"ARTICLE 172 AUPSRVE ARTICLE 150 AUS CCJA, Assemblée plénière, Arrêt n° 105/2014 du 04 novembre 2014 ;"
+TEST_0043_Document_de_Reference,AU_recouvrement
+TEST_0043_Numero_d_Article,172
+TEST_0044_Answer,"ORDONNANCE N°03/2015/CCJA (Article 30.2 du Règlement d’arbitrage)L’an deux mille quinze et le quatre juin Nous, Marcel SEREKOISSE-SAMBA, Président de la Cour Commune de Justice et d’Arbitrage de l’OHADA ;"
+TEST_0044_Document_de_Reference,AU_arbitrage
+TEST_0044_Numero_d_Article,30
+TEST_0045_Answer,"qu’elle fait valoir l’irrecevabilité de l’appel formé contre le jugement N°219 rendu le 26 mars 2008 par le Tribunal de Grande Instance du Mfoundi à Yaoundé, au motif que ce Tribunal pour rejeter les dires et observations de la société GIDP SA, ne s’est prononcé que sur l’existence du titre exécutoire conformément à l’article 300 de l’Acte uniforme sur les voies d’exécution ;"
+TEST_0045_Document_de_Reference,AU_recouvrement
+TEST_0045_Numero_d_Article,300
+TEST_0046_Answer,- VIOLATION DE L’ARTICLE 224 DE L’ACTE UNIFORME PORTANT ORGANISATION DES PROCEDURES SIMPLIFIEES ET DES VOIES D’EXECUTION : REJET.Le délai pour former recours devant la Cour Commune de Justice et d’Arbitrage est de 2 mois à partir de la signification de la décision attaquée ;
+TEST_0046_Document_de_Reference,AU_arbitrage
+TEST_0046_Numero_d_Article,224

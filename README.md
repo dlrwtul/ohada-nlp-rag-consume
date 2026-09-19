@@ -10,6 +10,21 @@ Une landing page publique (`/`) explique le projet ; on peut discuter directemen
 - [Ollama](https://ollama.com) installé et lancé (aucun GPU requis — Ollama tourne bien sur CPU)
 - Un token Hugging Face (optionnel, recommandé pour éviter le rate-limit lors du téléchargement du dataset/des embeddings)
 
+## Espace disque
+
+| Composant | Taille approximative |
+|---|---|
+| Dépôt cloné | ~10 Mo |
+| Environnement Python (`.venv/`, torch **CPU-only**) | ~1,3–1,5 Go |
+| Modèle d'embeddings `bge-small-en-v1.5` (téléchargé au 1er lancement) | ~130 Mo |
+| Ollama (binaire) | ~300–600 Mo selon l'OS |
+| Modèle `qwen2.5:1.5b` (`ollama pull`) | ~1 Go |
+| Index Chroma `chroma_db_v2/` (~15 600 chunks) | ~150–350 Mo |
+| Base SQLite `app.db` | quelques Mo |
+| **Total** | **~3 à 3,5 Go** |
+
+⚠️ `requirements.txt` force explicitement l'index PyPI CPU-only de PyTorch (`--index-url https://download.pytorch.org/whl/cpu`). Sans ça, `pip install torch` télécharge par défaut la build CUDA, qui traîne plusieurs Go de bibliothèques nvidia/triton totalement inutiles ici (la génération tourne via Ollama, pas via torch) — la différence est significative (plusieurs Go), donc pas anodine si l'espace disque compte.
+
 ## Démarrage rapide (script tout-en-un)
 
 Un script s'occupe de tout : installer/démarrer Ollama, télécharger le modèle, créer le venv Python, installer les dépendances et lancer le serveur.

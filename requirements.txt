@@ -1,3 +1,9 @@
+# Torch CPU-only : sans ceci, "pip install torch" télécharge par défaut la
+# build CUDA (plusieurs Go de bibliothèques nvidia/triton inutiles ici, vu
+# que la génération LLM tourne via Ollama, pas via torch).
+--index-url https://download.pytorch.org/whl/cpu
+--extra-index-url https://pypi.org/simple
+
 fastapi>=0.111
 uvicorn[standard]>=0.30
 python-dotenv>=1.0

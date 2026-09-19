@@ -1,4 +1,8 @@
 chroma_db/
+app.db
+app.db-journal
+app.db-wal
+app.db-shm
 __pycache__/
 *.pyc
 .env

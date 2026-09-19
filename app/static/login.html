@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Connexion — OHADA Assistant</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=3">
+<link rel="shortcut icon" type="image/svg+xml" href="/static/favicon.svg?v=3">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="auth-page">
+    <header class="topbar">
+      <div class="topbar-left">
+        <a href="/" class="brand" style="text-decoration:none;">
+          <span class="brand-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"></path><path d="M5 7h14"></path><path d="M5 7 2 13a3 3 0 0 0 6 0Z"></path><path d="M19 7l-3 6a3 3 0 0 0 6 0Z"></path><path d="M8 21h8"></path></svg>
+          </span>
+          <span class="brand-name">OHADA Assistant</span>
+        </a>
+      </div>
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Changer de thème">
+        <svg class="icon icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path></svg>
+        <svg class="icon icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+      </button>
+    </header>
+
+    <main class="auth-main">
+      <div class="auth-card">
+        <h1>Se connecter</h1>
+        <p class="auth-subtitle">Retrouvez vos discussions enregistrées.</p>
+
+        <form data-auth-endpoint="/login">
+          <p class="form-error" hidden></p>
+          <div class="form-field">
+            <label for="username">Nom d'utilisateur</label>
+            <input type="text" id="username" name="username" autocomplete="username" required>
+          </div>
+          <div class="form-field">
+            <label for="password">Mot de passe</label>
+            <input type="password" id="password" name="password" autocomplete="current-password" required>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
+        </form>
+
+        <p class="auth-footer-link">Pas encore de compte ? <a href="/register" data-preserve-next>Créer un compte</a></p>
+        <a href="/app" class="guest-link">Continuer sans compte</a>
+      </div>
+    </main>
+  </div>
+<script src="/static/theme.js"></script>
+<script src="/static/auth.js"></script>
+</body>
+</html>

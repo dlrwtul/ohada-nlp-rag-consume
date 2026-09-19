@@ -1,8 +1,19 @@
+# Torch CPU-only : sans ceci, "pip install torch" télécharge par défaut la
+# build CUDA (plusieurs Go de bibliothèques nvidia/triton inutiles ici, vu
+# que la génération LLM tourne via Ollama, pas via torch).
+--index-url https://download.pytorch.org/whl/cpu
+--extra-index-url https://pypi.org/simple
+
 fastapi>=0.111
 uvicorn[standard]>=0.30
 python-dotenv>=1.0
 pydantic>=2.7
 python-multipart>=0.0.9
+requests>=2.31
+
+# Authentification (comptes utilisateurs + sessions invité)
+bcrypt>=4.1
+itsdangerous>=2.2
 
 datasets>=2.19
 pandas>=2.2
@@ -14,8 +25,7 @@ langchain-huggingface>=0.0.3
 langchain-chroma>=0.1
 chromadb>=0.5
 
+# Nécessaires uniquement pour le modèle d'embeddings (BGE-small, léger, CPU).
+# Le LLM de génération n'est plus chargé ici : il tourne via Ollama.
 torch>=2.2
-transformers>=4.42
-accelerate>=0.31
-bitsandbytes>=0.46.1
 sentence-transformers>=3.0

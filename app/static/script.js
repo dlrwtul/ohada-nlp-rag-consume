@@ -14,6 +14,15 @@
   const infoSidebar = document.getElementById("info-sidebar");
   const infoOverlay = document.getElementById("info-overlay");
   const infoBody = document.getElementById("info-body");
+  const accountLink = document.getElementById("account-link");
+
+  const conversationsToggle = document.getElementById("conversations-toggle");
+  const conversationsClose = document.getElementById("conversations-close");
+  const conversationsSidebar = document.getElementById("conversations-sidebar");
+  const conversationsOverlay = document.getElementById("conversations-overlay");
+  const conversationList = document.getElementById("conversation-list");
+  const newConversationBtn = document.getElementById("new-conversation-btn");
+  const guestNotice = document.getElementById("guest-notice");
 
   const SEND_ICON = sendBtn.innerHTML;
   const STOP_ICON = `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>`;
@@ -23,9 +32,12 @@
   const ICON_CPU = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="6" height="6"></rect><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"></path></svg>`;
   const ICON_SERVER = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="8" rx="2"></rect><rect x="2" y="13" width="20" height="8" rx="2"></rect><path d="M6 7h.01M6 17h.01"></path></svg>`;
   const ICON_LAYERS = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 9 5-9 5-9-5 9-5Z"></path><path d="m3 12 9 5 9-5"></path><path d="m3 17 9 5 9-5"></path></svg>`;
+  const ICON_TRASH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path></svg>`;
 
   let currentController = null;
   let isGenerating = false;
+  let currentConversationId = null;
+  let conversations = [];
 
   function setGeneratingState(active) {
     isGenerating = active;
@@ -114,7 +126,9 @@
   infoOverlay.addEventListener("click", closeInfo);
 
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && infoSidebar.classList.contains("open")) closeInfo();
+    if (e.key !== "Escape") return;
+    if (infoSidebar.classList.contains("open")) closeInfo();
+    if (conversationsSidebar.classList.contains("open")) closeConversations();
   });
 
   async function loadInfo() {
@@ -155,20 +169,21 @@
       <section>
         <div class="info-section-title">${ICON_CPU} Génération (LLM)</div>
         ${infoRow("Modèle", data.llm_model)}
-        ${infoRow("Quantification", "4-bit NF4 (bitsandbytes)")}
-        ${infoRow("Décodage", "glouton (greedy)")}
+        ${infoRow("Moteur d'inférence", data.inference_engine)}
+        ${infoRow("Quantification", data.quantization)}
+        ${infoRow("Décodage", data.decoding)}
         ${infoRow("Longueur max de réponse", `${data.max_new_tokens} tokens`)}
       </section>
       <section>
         <div class="info-section-title">${ICON_SERVER} Infrastructure</div>
         ${infoRow("Backend", "FastAPI + Uvicorn")}
         ${infoRow("Frontend", "HTML / CSS / JS")}
-        ${infoRow("Calcul", "GPU CUDA (ex. T4)")}
+        ${infoRow("Calcul", data.compute)}
       </section>
       <section>
         <div class="info-section-title">${ICON_LAYERS} Outils &amp; bibliothèques</div>
         <div class="info-tags">
-          ${["LangChain", "Transformers", "Accelerate", "bitsandbytes", "PyTorch", "ChromaDB", "pandas", "openpyxl", "Web Speech API"]
+          ${["LangChain", "Ollama", "llama.cpp", "Sentence-Transformers", "PyTorch", "ChromaDB", "pandas", "openpyxl", "Web Speech API"]
             .map((t) => `<span class="info-tag">${escapeHtml(t)}</span>`)
             .join("")}
         </div>
@@ -181,6 +196,166 @@
     div.textContent = str;
     return div.innerHTML;
   }
+
+  // --- Identité (compte réel ou invité) ---
+
+  async function loadMe() {
+    try {
+      const res = await fetch("/me");
+      const data = await res.json();
+      if (data.is_guest) {
+        accountLink.href = "/login";
+        accountLink.setAttribute("aria-label", "Se connecter");
+        accountLink.title = "Se connecter";
+        accountLink.onclick = null;
+      } else {
+        accountLink.href = "#";
+        accountLink.setAttribute("aria-label", `Déconnexion (${data.username})`);
+        accountLink.title = `Déconnexion (${data.username})`;
+        accountLink.onclick = async (e) => {
+          e.preventDefault();
+          await fetch("/logout", { method: "POST" }).catch(() => {});
+          window.location.href = "/";
+        };
+      }
+      guestNotice.hidden = !data.is_guest;
+      return data;
+    } catch (err) {
+      return { is_guest: true };
+    }
+  }
+
+  // --- Sidebar des conversations ---
+
+  function openConversations() {
+    conversationsOverlay.hidden = false;
+    requestAnimationFrame(() => {
+      conversationsSidebar.classList.add("open");
+      conversationsOverlay.classList.add("open");
+    });
+    conversationsSidebar.setAttribute("aria-hidden", "false");
+    conversationsToggle.setAttribute("aria-expanded", "true");
+    loadConversations();
+  }
+
+  function closeConversations() {
+    conversationsSidebar.classList.remove("open");
+    conversationsOverlay.classList.remove("open");
+    conversationsSidebar.setAttribute("aria-hidden", "true");
+    conversationsToggle.setAttribute("aria-expanded", "false");
+    setTimeout(() => {
+      if (!conversationsOverlay.classList.contains("open")) conversationsOverlay.hidden = true;
+    }, 220);
+  }
+
+  conversationsToggle.addEventListener("click", () => {
+    if (conversationsSidebar.classList.contains("open")) {
+      closeConversations();
+    } else {
+      openConversations();
+    }
+  });
+  conversationsClose.addEventListener("click", closeConversations);
+  conversationsOverlay.addEventListener("click", closeConversations);
+
+  async function loadConversations({ autoSelect = false } = {}) {
+    try {
+      const res = await fetch("/conversations");
+      if (!res.ok) throw new Error("bad response");
+      conversations = await res.json();
+      renderConversationList();
+      if (autoSelect && conversations.length && currentConversationId === null) {
+        await selectConversation(conversations[0].id, { closeSidebar: false });
+      }
+    } catch (err) {
+      conversationList.innerHTML = `<p class="conversation-empty">Impossible de charger les discussions.</p>`;
+    }
+  }
+
+  function renderConversationList() {
+    if (!conversations.length) {
+      conversationList.innerHTML = `<p class="conversation-empty">Aucune discussion pour le moment.</p>`;
+      return;
+    }
+    conversationList.innerHTML = conversations
+      .map(
+        (c) => `
+        <div class="conversation-item${c.id === currentConversationId ? " active" : ""}" data-id="${c.id}">
+          <span class="conversation-item-title">${escapeHtml(c.title)}</span>
+          <button type="button" class="conversation-item-delete" aria-label="Supprimer cette discussion" data-id="${c.id}">
+            ${ICON_TRASH}
+          </button>
+        </div>`
+      )
+      .join("");
+  }
+
+  async function selectConversation(id, { closeSidebar = true } = {}) {
+    const res = await fetch(`/conversations/${id}/messages`);
+    if (!res.ok) return;
+    const messages = await res.json();
+
+    currentConversationId = id;
+    renderConversationList();
+    messagesEl.innerHTML = "";
+    emptyState.style.display = messages.length ? "none" : "";
+
+    messages.forEach((m) => {
+      if (m.role === "user") {
+        addUserMessage(m.content);
+      } else {
+        const el = document.createElement("div");
+        el.className = "msg msg-assistant";
+        messagesEl.appendChild(el);
+        renderAssistantMessage(el, { answer: m.content, sources: m.sources || [], reference: m.reference });
+      }
+    });
+
+    scrollToBottom();
+    if (closeSidebar) closeConversations();
+  }
+
+  newConversationBtn.addEventListener("click", async () => {
+    try {
+      const res = await fetch("/conversations", { method: "POST" });
+      if (res.status === 403) {
+        const body = await res.json().catch(() => ({}));
+        if (body.detail === "guest_limit") {
+          alert("Connectez-vous ou créez un compte pour démarrer une nouvelle discussion.");
+          return;
+        }
+      }
+      if (!res.ok) return;
+
+      const conv = await res.json();
+      currentConversationId = conv.id;
+      messagesEl.innerHTML = "";
+      emptyState.style.display = "";
+      await loadConversations();
+      closeConversations();
+    } catch (err) {
+      // silencieux : l'utilisateur peut réessayer
+    }
+  });
+
+  conversationList.addEventListener("click", async (e) => {
+    const delBtn = e.target.closest(".conversation-item-delete");
+    if (delBtn) {
+      e.stopPropagation();
+      const id = Number(delBtn.dataset.id);
+      await fetch(`/conversations/${id}`, { method: "DELETE" }).catch(() => {});
+      if (id === currentConversationId) {
+        currentConversationId = null;
+        messagesEl.innerHTML = "";
+        emptyState.style.display = "";
+      }
+      loadConversations();
+      return;
+    }
+
+    const item = e.target.closest(".conversation-item");
+    if (item) selectConversation(Number(item.dataset.id));
+  });
 
   function addUserMessage(text) {
     const msg = document.createElement("div");
@@ -202,6 +377,19 @@
     return msg;
   }
 
+  function ensureAssistantBubble(el) {
+    if (!el.querySelector(".msg-bubble")) {
+      el.innerHTML = `
+        <div class="msg-header">
+          <span class="msg-avatar">Assistant OHADA</span>
+          <button type="button" class="speak-btn" aria-label="Écouter la réponse" title="Écouter la réponse">${SPEAK_ICON}</button>
+        </div>
+        <div class="msg-bubble"></div>
+      `;
+    }
+    return el.querySelector(".msg-bubble");
+  }
+
   function renderAssistantMessage(el, data) {
     const sourcesHtml = (data.sources || [])
       .filter((s) => s.title)
@@ -214,12 +402,20 @@
       )
       .join("");
 
+    const ref = data.reference;
+    const refHtml = ref
+      ? `<div class="ref-badge"><span class="ref-badge-ic">§</span>${escapeHtml(ref.acronyme)}${
+          ref.article ? ` — Article ${escapeHtml(ref.article)}` : ""
+        }</div>`
+      : "";
+
     el.innerHTML = `
       <div class="msg-header">
         <span class="msg-avatar">Assistant OHADA</span>
         <button type="button" class="speak-btn" aria-label="Écouter la réponse" title="Écouter la réponse">${SPEAK_ICON}</button>
       </div>
       <div class="msg-bubble">${escapeHtml(data.answer)}</div>
+      ${refHtml}
       ${
         sourcesHtml
           ? `<details class="sources">
@@ -242,6 +438,13 @@
     el.innerHTML = `
       <div class="msg-avatar">Assistant OHADA</div>
       <div class="error-text" style="color: var(--text-tertiary); font-style: italic;">Réponse interrompue.</div>
+    `;
+  }
+
+  function renderGuestLimit(el) {
+    el.innerHTML = `
+      <div class="msg-avatar">Assistant OHADA</div>
+      <div class="guest-notice">Vous avez atteint la limite d'une discussion en tant qu'invité. <a href="/login">Connectez-vous</a> ou <a href="/register">créez un compte</a> pour en démarrer une nouvelle.</div>
     `;
   }
 
@@ -343,18 +546,63 @@
     currentController = new AbortController();
     setGeneratingState(true);
 
+    let answer = "";
+    let receivedAnyToken = false;
+
     try {
       const res = await fetch("/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ question, conversation_id: currentConversationId }),
         signal: currentController.signal,
       });
 
-      if (!res.ok) throw new Error(`Erreur serveur (${res.status})`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        if (res.status === 403 && body.detail === "guest_limit") {
+          renderGuestLimit(typingEl);
+          return;
+        }
+        throw new Error(`Erreur serveur (${res.status})`);
+      }
 
-      const data = await res.json();
-      renderAssistantMessage(typingEl, data);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let finalData = null;
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const evt = JSON.parse(line);
+
+          if (evt.type === "meta") {
+            if (currentConversationId !== evt.conversation_id) {
+              currentConversationId = evt.conversation_id;
+              loadConversations();
+            }
+          } else if (evt.type === "token") {
+            answer += evt.token;
+            receivedAnyToken = true;
+            ensureAssistantBubble(typingEl).textContent = answer;
+            scrollToBottom();
+          } else if (evt.type === "done") {
+            finalData = evt;
+          }
+        }
+      }
+
+      if (finalData) {
+        renderAssistantMessage(typingEl, { answer: finalData.answer, sources: finalData.sources, reference: finalData.reference });
+      } else if (!receivedAnyToken) {
+        renderError(typingEl, "Désolé, aucune réponse reçue. Réessayez.");
+      }
     } catch (err) {
       if (err.name === "AbortError") {
         renderInterrupted(typingEl);
@@ -411,4 +659,7 @@
   }
 
   composer.addEventListener("submit", handleSubmit);
+
+  loadMe();
+  loadConversations({ autoSelect: true });
 })();

@@ -14,8 +14,11 @@ from app.references import extraire_reference
 
 load_dotenv()
 
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
-CHROMA_DIR = os.getenv("CHROMA_DIR", "./chroma_db_v2")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+# _v3 : bge-small-en-v1.5 (anglais uniquement) a été remplacé par un modèle
+# multilingue — un ancien index construit avec l'embedding anglais n'est pas
+# compatible (recherche sémantique dégradée sur un corpus 100% français).
+CHROMA_DIR = os.getenv("CHROMA_DIR", "./chroma_db_v3")
 DATASET_NAME = os.getenv("DATASET_NAME", "uriel/Maathis_Ohada_dataset")
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")

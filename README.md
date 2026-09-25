@@ -1,6 +1,6 @@
 # OHADA Assistant — mini app RAG
 
-Mini application web qui consomme un pipeline RAG (retrieval-augmented generation) sur le corpus juridique OHADA : embeddings BGE + Chroma pour le retrieval, Qwen2.5-1.5B-Instruct (open-source, licence Apache-2.0) servi par Ollama (CPU) pour la génération, le tout derrière une API FastAPI avec une interface de chat moderne (dark/light), des réponses **streamées** token par token, et plusieurs discussions persistées par utilisateur (avec ou sans compte).
+Mini application web qui consomme un pipeline RAG (retrieval-augmented generation) sur le corpus juridique OHADA : embeddings multilingues (`paraphrase-multilingual-MiniLM-L12-v2`) + Chroma pour le retrieval, Qwen2.5-1.5B-Instruct (open-source, licence Apache-2.0) servi par Ollama (CPU) pour la génération, le tout derrière une API FastAPI avec une interface de chat moderne (dark/light), des réponses **streamées** token par token, et plusieurs discussions persistées par utilisateur (avec ou sans compte).
 
 Une landing page publique (`/`) explique le projet ; on peut discuter directement (`/app`) **sans créer de compte** — une seule discussion est alors conservée. Se connecter ou créer un compte (`/login`, `/register`) permet d'en garder plusieurs.
 
@@ -16,12 +16,12 @@ Une landing page publique (`/`) explique le projet ; on peut discuter directemen
 |---|---|
 | Dépôt cloné | ~10 Mo |
 | Environnement Python (`.venv/`, torch **CPU-only**) | ~1,3–1,5 Go |
-| Modèle d'embeddings `bge-small-en-v1.5` (téléchargé au 1er lancement) | ~130 Mo |
+| Modèle d'embeddings `paraphrase-multilingual-MiniLM-L12-v2` (téléchargé au 1er lancement) | ~470 Mo |
 | Ollama (binaire) | ~300–600 Mo selon l'OS |
 | Modèle `qwen2.5:1.5b` (`ollama pull`) | ~1 Go |
-| Index Chroma `chroma_db_v2/` (~15 600 chunks) | ~150–350 Mo |
+| Index Chroma `chroma_db_v3/` (~15 600 chunks) | ~150–350 Mo |
 | Base SQLite `app.db` | quelques Mo |
-| **Total** | **~3 à 3,5 Go** |
+| **Total** | **~3,2 à 3,8 Go** |
 
 ⚠️ `requirements.txt` force explicitement l'index PyPI CPU-only de PyTorch (`--index-url https://download.pytorch.org/whl/cpu`). Sans ça, `pip install torch` télécharge par défaut la build CUDA, qui traîne plusieurs Go de bibliothèques nvidia/triton totalement inutiles ici (la génération tourne via Ollama, pas via torch) — la différence est significative (plusieurs Go), donc pas anodine si l'espace disque compte.
 
@@ -68,7 +68,9 @@ ollama serve
 uvicorn app.main:app --reload
 ```
 
-Au premier démarrage, si aucun index Chroma n'existe dans `CHROMA_DIR` (par défaut `./chroma_db_v2`), l'app découpe le corpus en chunks (~1000 caractères, `RecursiveCharacterTextSplitter`), construit les embeddings et persiste l'index automatiquement. Les démarrages suivants réutilisent l'index existant.
+Au premier démarrage, si aucun index Chroma n'existe dans `CHROMA_DIR` (par défaut `./chroma_db_v3`), l'app découpe le corpus en chunks (~1000 caractères, `RecursiveCharacterTextSplitter`), construit les embeddings et persiste l'index automatiquement. Les démarrages suivants réutilisent l'index existant.
+
+⚠️ Si tu avais déjà un ancien `chroma_db_v2/` (ou plus ancien) sur ta machine : il n'est plus utilisé (voir ci-dessous, "Correctif embeddings"). Rien à faire — l'app détecte l'absence de `chroma_db_v3/` et le reconstruit automatiquement au prochain lancement (le coût d'indexation initial est repayé une fois). Tu peux supprimer l'ancien dossier pour libérer l'espace.
 
 Le dataset est chargé depuis `data/ohada.xlsx` (fichier local, `DATASET_XLSX_PATH`) s'il est présent — c'est le cas par défaut dans ce repo, donc tout fonctionne 100% hors-ligne dès le premier lancement. S'il est absent, il est téléchargé depuis le Hub Hugging Face (`DATASET_NAME=uriel/Maathis_Ohada_dataset`).
 
@@ -80,7 +82,7 @@ Ouvrir [http://localhost:8000](http://localhost:8000) (landing page) ou directem
 
 **Ce qui se passe réellement à chaque question** (pour dissiper le doute : non, le "notebook" n'est pas relancé à chaque interaction) :
 
-1. **Au démarrage du serveur, une seule fois** (`app/main.py`, fonction `lifespan`) : construction/chargement de l'index Chroma (embeddings du corpus) et création d'une unique instance `RagEngine` (charge le modèle d'embeddings BGE en RAM). Ce coût est payé une fois par démarrage de `uvicorn`/`start.sh`, jamais par question.
+1. **Au démarrage du serveur, une seule fois** (`app/main.py`, fonction `lifespan`) : construction/chargement de l'index Chroma (embeddings du corpus) et création d'une unique instance `RagEngine` (charge le modèle d'embeddings en RAM). Ce coût est payé une fois par démarrage de `uvicorn`/`start.sh`, jamais par question.
 2. **À chaque question** (`app/rag.py`, `_generate`/`_generate_stream`) : seulement une recherche vectorielle Chroma (quasi instantanée même sur plusieurs milliers de chunks) puis un appel à Ollama pour la génération — c'est la seule étape coûteuse par requête, et c'est purement le temps que met le modèle à produire ses tokens sur ton CPU.
 
 Le terminal affiche à chaque réponse une ligne `[rag] retrieval: Xs | génération: Ys | total: Zs` — **c'est le premier réflexe pour diagnostiquer une lenteur** : si `retrieval` est élevé (rare), c'est l'index qui a un problème ; si c'est `génération` qui domine (le cas le plus probable), la génération LLM elle-même est le goulot, pas le RAG autour.
@@ -90,6 +92,12 @@ Les réponses sont **streamées** token par token (comme la plupart des chats LL
 - **`OLLAMA_MODEL`** : `qwen2.5:1.5b` (par défaut ici, Apache-2.0) est déjà le compromis rapide. `qwen2.5:3b` répond un peu mieux mais est ~2x plus lent *et* sous licence Qwen Research (non-commerciale, pas open-source) — à réserver aux usages où la licence du modèle n'est pas contrainte (voir section Zindi plus bas).
 - **`OLLAMA_KEEP_ALIVE`** (nouveau, voir `.env.example`) : par défaut Ollama décharge le modèle de la RAM après 5 minutes d'inactivité — le rechargement depuis le disque au message suivant ajoute plusieurs secondes. `OLLAMA_KEEP_ALIVE=30m` (déjà la valeur par défaut ici) garde le modèle chargé plus longtemps ; `-1` pour ne jamais le décharger si la RAM le permet.
 - **CPU réellement alloué** : sous WSL2/Windows notamment, vérifie que WSL n'est pas bridé (`.wslconfig` — par défaut WSL2 limite parfois la RAM/CPU disponible) et regarde l'usage CPU (`htop`/gestionnaire des tâches) pendant la génération : si un seul cœur tourne à 100% et les autres à 0%, Ollama n'exploite pas tout le CPU disponible.
+
+## Correctif embeddings — réponses à côté de la question
+
+`app/rag.py` utilisait `BAAI/bge-small-en-v1.5`, un modèle d'embeddings **anglais uniquement**, pour indexer/interroger un corpus **100% francophone** (le droit OHADA). Un embedding anglais sur du texte français produit une recherche sémantique dégradée : les documents récupérés par similarité vectorielle ne sont souvent pas les bons, et aucun LLM en aval — même très capable — ne peut donner une réponse correcte à partir d'un contexte hors-sujet. C'est la cause la plus probable de réponses systématiquement fausses (là où un écart de qualité entre modèles de génération produirait des réponses *moins bonnes*, pas *à côté*).
+
+Correctif : `EMBEDDING_MODEL` passe à `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` (multilingue, taille/vitesse comparables à l'ancien modèle, pas de préfixe `query:`/`passage:` à gérer contrairement à `e5-*`). `CHROMA_DIR` passe à `./chroma_db_v3` pour forcer une reconstruction propre — un ancien index construit avec l'embedding anglais n'est pas compatible avec le nouveau modèle. Le notebook CPU/Ollama (`notebook/NLP_project_ollama.ipynb`) a reçu le même correctif ; le notebook GPU utilisait déjà `BAAI/bge-m3` (explicitement multilingue) et n'était pas concerné.
 
 ## Comptes, invités et conversations
 
@@ -122,7 +130,7 @@ notebook/                   # notebooks GPU (Colab) et CPU (Ollama) + vrais fich
 ## Notebook GPU vs version locale
 
 - `notebook/NLP_project_rag_ohada_gpu_from_xlsx.ipynb` — version **GPU** (Colab, T4) : chunking (`RecursiveCharacterTextSplitter`), embeddings `BAAI/bge-m3` (lourd mais très précis, tourne sur GPU), génération par `mistral-community/Mistral-7B-Instruct-v0.3` (Apache-2.0, 4-bit via bitsandbytes). Ouvrir dans Colab, `Exécution > Modifier le type d'exécution > GPU (T4)`, uploader `data/ohada.xlsx` + `Test.csv`/`Eval.csv` dans l'environnement (panneau fichiers à gauche).
-- `notebook/NLP_project_ollama.ipynb` — version **sans GPU** : même chunking, mais embeddings `BAAI/bge-small-en-v1.5` (léger, rapide sur CPU) et génération via Ollama (`qwen2.5:1.5b`, Apache-2.0). C'est celui-là qu'il faut utiliser sur une machine sans GPU — l'app FastAPI (`app/`) en est l'équivalent packagé (mêmes choix : chunking + bge-small + Ollama).
+- `notebook/NLP_project_ollama.ipynb` — version **sans GPU** : même chunking, embeddings multilingues `paraphrase-multilingual-MiniLM-L12-v2` (léger, rapide sur CPU, voir "Correctif embeddings" plus haut) et génération via Ollama (`qwen2.5:1.5b`, Apache-2.0). C'est celui-là qu'il faut utiliser sur une machine sans GPU — l'app FastAPI (`app/`) en est l'équivalent packagé (mêmes choix : chunking + embeddings multilingues + Ollama).
 
 Les deux notebooks partagent la même logique de détection d'Acte Uniforme/article (table `ACTES`, voir plus bas) et la même carte HTML de présentation de la réponse.
 

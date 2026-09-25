@@ -12,11 +12,11 @@ load_dotenv()
 
 DATASET_NAME = os.getenv("DATASET_NAME", "uriel/Maathis_Ohada_dataset")
 DATASET_XLSX_PATH = os.getenv("DATASET_XLSX_PATH", "./data/ohada.xlsx")
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
-# _v2 : le chunking ci-dessous change la structure de l'index — un ancien
-# ./chroma_db construit avant (un vecteur par document entier, non découpé)
-# n'est pas compatible ; ce nouveau nom force une reconstruction propre.
-CHROMA_DIR = os.getenv("CHROMA_DIR", "./chroma_db_v2")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+# _v3 : bge-small-en-v1.5 (anglais uniquement) a été remplacé par un modèle
+# multilingue — un ancien index construit avec l'embedding anglais n'est pas
+# compatible (recherche sémantique dégradée sur un corpus 100% français).
+CHROMA_DIR = os.getenv("CHROMA_DIR", "./chroma_db_v3")
 
 
 def load_documents() -> list[Document]:

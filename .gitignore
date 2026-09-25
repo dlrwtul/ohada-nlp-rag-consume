@@ -1,4 +1,5 @@
 chroma_db/
+chroma_db_v*/
 app.db
 app.db-journal
 app.db-wal

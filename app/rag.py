@@ -22,7 +22,13 @@ CHROMA_DIR = os.getenv("CHROMA_DIR", "./chroma_db_v3")
 DATASET_NAME = os.getenv("DATASET_NAME", "uriel/Maathis_Ohada_dataset")
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:1.5b")
+# mistral (Mistral-7B-Instruct, Apache-2.0) — mêmes poids que le notebook GPU
+# (mistral-community/Mistral-7B-Instruct-v0.3), qui donne de bonnes réponses
+# sur Colab. Plus lourd/lent sur CPU que qwen2.5:1.5b (~4,1 Go vs ~1 Go, et
+# la génération est nettement plus lente) mais la qualité des réponses est
+# la priorité ici. qwen2.5:1.5b reste utilisable via OLLAMA_MODEL si la
+# vitesse prime.
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "mistral")
 # Combien de temps Ollama garde le modèle chargé en RAM après la dernière requête.
 # Par défaut Ollama décharge le modèle au bout de 5 minutes d'inactivité ; le
 # rechargement depuis le disque au message suivant peut à lui seul prendre
@@ -30,7 +36,9 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:1.5b")
 OLLAMA_KEEP_ALIVE = os.getenv("OLLAMA_KEEP_ALIVE", "30m")
 
 K_RETRIEVAL = 2
-MAX_NEW_TOKENS = 100
+# Aligné sur le notebook GPU (pipeline transformers, max_new_tokens=256) pour
+# une config équivalente entre local (Ollama) et Colab (transformers).
+MAX_NEW_TOKENS = 256
 CONTEXT_CHAR_LIMIT = 3000
 
 PROMPT_TEMPLATE = PromptTemplate.from_template(

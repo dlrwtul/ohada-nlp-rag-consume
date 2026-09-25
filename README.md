@@ -1,6 +1,6 @@
 # OHADA Assistant — mini app RAG
 
-Mini application web qui consomme un pipeline RAG (retrieval-augmented generation) sur le corpus juridique OHADA : embeddings multilingues (`paraphrase-multilingual-MiniLM-L12-v2`) + Chroma pour le retrieval, Qwen2.5-1.5B-Instruct (open-source, licence Apache-2.0) servi par Ollama (CPU) pour la génération, le tout derrière une API FastAPI avec une interface de chat moderne (dark/light), des réponses **streamées** token par token, et plusieurs discussions persistées par utilisateur (avec ou sans compte).
+Mini application web qui consomme un pipeline RAG (retrieval-augmented generation) sur le corpus juridique OHADA : embeddings multilingues (`paraphrase-multilingual-MiniLM-L12-v2`) + Chroma pour le retrieval, Mistral-7B-Instruct (open-source, licence Apache-2.0 — mêmes poids que le notebook GPU) servi par Ollama (CPU) pour la génération, le tout derrière une API FastAPI avec une interface de chat moderne (dark/light), des réponses **streamées** token par token, et plusieurs discussions persistées par utilisateur (avec ou sans compte).
 
 Une landing page publique (`/`) explique le projet ; on peut discuter directement (`/app`) **sans créer de compte** — une seule discussion est alors conservée. Se connecter ou créer un compte (`/login`, `/register`) permet d'en garder plusieurs.
 
@@ -18,10 +18,12 @@ Une landing page publique (`/`) explique le projet ; on peut discuter directemen
 | Environnement Python (`.venv/`, torch **CPU-only**) | ~1,3–1,5 Go |
 | Modèle d'embeddings `paraphrase-multilingual-MiniLM-L12-v2` (téléchargé au 1er lancement) | ~470 Mo |
 | Ollama (binaire) | ~300–600 Mo selon l'OS |
-| Modèle `qwen2.5:1.5b` (`ollama pull`) | ~1 Go |
+| Modèle `mistral` (`ollama pull`, Mistral-7B-Instruct quantifié) | ~4,1 Go |
 | Index Chroma `chroma_db_v3/` (~15 600 chunks) | ~150–350 Mo |
 | Base SQLite `app.db` | quelques Mo |
-| **Total** | **~3,2 à 3,8 Go** |
+| **Total** | **~6,3 à 6,9 Go** |
+
+Modèle plus léger disponible via `OLLAMA_MODEL=qwen2.5:1.5b` (~1 Go au lieu de ~4,1 Go) si la vitesse prime sur la qualité des réponses — voir section Performance.
 
 ⚠️ `requirements.txt` force explicitement l'index PyPI CPU-only de PyTorch (`--index-url https://download.pytorch.org/whl/cpu`). Sans ça, `pip install torch` télécharge par défaut la build CUDA, qui traîne plusieurs Go de bibliothèques nvidia/triton totalement inutiles ici (la génération tourne via Ollama, pas via torch) — la différence est significative (plusieurs Go), donc pas anodine si l'espace disque compte.
 
@@ -45,7 +47,7 @@ Le script est idempotent (relançable sans risque) : il saute les étapes déjà
 ```bash
 # 1. Installer et lancer Ollama (une seule fois)
 curl -fsSL https://ollama.com/install.sh | sh
-ollama pull qwen2.5:1.5b
+ollama pull mistral
 
 # 2. Environnement Python
 python -m venv .venv
@@ -87,9 +89,9 @@ Ouvrir [http://localhost:8000](http://localhost:8000) (landing page) ou directem
 
 Le terminal affiche à chaque réponse une ligne `[rag] retrieval: Xs | génération: Ys | total: Zs` — **c'est le premier réflexe pour diagnostiquer une lenteur** : si `retrieval` est élevé (rare), c'est l'index qui a un problème ; si c'est `génération` qui domine (le cas le plus probable), la génération LLM elle-même est le goulot, pas le RAG autour.
 
-Les réponses sont **streamées** token par token (comme la plupart des chats LLM) : le premier mot apparaît en ~1s au lieu d'attendre la fin de toute la génération, ce qui réduit la latence *perçue* — mais le temps total pour un paragraphe de 100 tokens sur CPU reste ce qu'il est. Si `génération` est systématiquement long (dizaines de secondes), les leviers réels sont :
+Les réponses sont **streamées** token par token (comme la plupart des chats LLM) : le premier mot apparaît rapidement au lieu d'attendre la fin de toute la génération, ce qui réduit la latence *perçue* — mais le temps total pour une réponse de 256 tokens sur CPU reste ce qu'il est, et **`mistral` (7B, modèle par défaut) est nettement plus lent sur CPU que qwen2.5:1.5b** (plusieurs fois plus de paramètres à faire tourner par token). C'est un choix délibéré : `mistral` est le même modèle que celui qui donne de bonnes réponses sur le notebook GPU, la qualité des réponses prime ici sur la vitesse. Si `génération` est trop long pour ton usage, les leviers réels sont :
 
-- **`OLLAMA_MODEL`** : `qwen2.5:1.5b` (par défaut ici, Apache-2.0) est déjà le compromis rapide. `qwen2.5:3b` répond un peu mieux mais est ~2x plus lent *et* sous licence Qwen Research (non-commerciale, pas open-source) — à réserver aux usages où la licence du modèle n'est pas contrainte (voir section Zindi plus bas).
+- **`OLLAMA_MODEL=qwen2.5:1.5b`** (Apache-2.0) : bien plus rapide sur CPU que `mistral`, au prix d'une qualité de réponse moindre (modèle 1,5B vs 7B) — à utiliser si la vitesse prime. `qwen2.5:3b` est un compromis intermédiaire mais sous licence Qwen Research (non-commerciale, pas open-source) — à éviter si la licence du modèle compte (voir section Zindi plus bas).
 - **`OLLAMA_KEEP_ALIVE`** (nouveau, voir `.env.example`) : par défaut Ollama décharge le modèle de la RAM après 5 minutes d'inactivité — le rechargement depuis le disque au message suivant ajoute plusieurs secondes. `OLLAMA_KEEP_ALIVE=30m` (déjà la valeur par défaut ici) garde le modèle chargé plus longtemps ; `-1` pour ne jamais le décharger si la RAM le permet.
 - **CPU réellement alloué** : sous WSL2/Windows notamment, vérifie que WSL n'est pas bridé (`.wslconfig` — par défaut WSL2 limite parfois la RAM/CPU disponible) et regarde l'usage CPU (`htop`/gestionnaire des tâches) pendant la génération : si un seul cœur tourne à 100% et les autres à 0%, Ollama n'exploite pas tout le CPU disponible.
 
@@ -138,7 +140,7 @@ Les deux notebooks partagent la même logique de détection d'Acte Uniforme/arti
 
 Ce repo est aligné sur le règlement du concours *Large Language Model Challenge on OHADA Law* (data354/Zindi) :
 
-- **Modèle open-source** : `qwen2.5:1.5b` (Apache-2.0) pour l'app/notebook Ollama ; `mistral-community/Mistral-7B-Instruct-v0.3` (Apache-2.0, cité en exemple dans le règlement, mirroir non *gated* donc pas de token HF requis) pour le notebook GPU. `qwen2.5:3b` reste utilisable via `OLLAMA_MODEL` mais sa licence Qwen Research (non-commerciale) le rend non conforme à l'exigence "LLM open-source uniquement" — à éviter pour une soumission.
+- **Modèle open-source** : `mistral` (Mistral-7B-Instruct, Apache-2.0) pour l'app/notebook Ollama, par défaut — mêmes poids que `mistral-community/Mistral-7B-Instruct-v0.3` (Apache-2.0, cité en exemple dans le règlement, mirroir non *gated* donc pas de token HF requis) utilisé par le notebook GPU. `qwen2.5:1.5b` (Apache-2.0, plus rapide sur CPU) reste utilisable via `OLLAMA_MODEL` si la vitesse prime. `qwen2.5:3b` est aussi utilisable via `OLLAMA_MODEL` mais sa licence Qwen Research (non-commerciale) le rend non conforme à l'exigence "LLM open-source uniquement" — à éviter pour une soumission.
 - **Matériel** : app/notebook Ollama tournent entièrement sur CPU ; le notebook GPU tient en 4-bit sur un simple Colab T4 gratuit — les deux respectent la contrainte matérielle du règlement.
 - **Vrais fichiers complets du concours**, présents dans `notebook/` :
   - `Test.csv` : 46 questions (`TEST_0001`…`TEST_0046`), colonnes `ID`/`Question`.

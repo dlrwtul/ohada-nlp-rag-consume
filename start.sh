@@ -4,7 +4,7 @@ set -e
 
 cd "$(dirname "$0")"
 
-OLLAMA_MODEL="${OLLAMA_MODEL:-qwen2.5:1.5b}"
+OLLAMA_MODEL="${OLLAMA_MODEL:-mistral}"
 OLLAMA_HOST_URL="${OLLAMA_HOST:-http://localhost:11434}"
 
 # 1. Ollama : installation si absente
